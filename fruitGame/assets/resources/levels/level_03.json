@@ -1,0 +1,25 @@
+{
+  "level": 3,
+  "name": "冷藏挑战",
+  "target": "清空全部水果",
+  "targetCount": 0,
+  "description": "首次引入冰冻水果（1 个），5 种水果",
+  "fruits": [
+    { "type": "strawberry", "x": -140, "y": 120, "layer": 0 },
+    { "type": "strawberry", "x": -60, "y": 160, "layer": 0 },
+    { "type": "strawberry", "x": 20, "y": 200, "layer": 0 },
+    { "type": "orange", "x": 60, "y": 120, "layer": 0 },
+    { "type": "orange", "x": 140, "y": 160, "layer": 0 },
+    { "type": "orange", "x": 200, "y": 200, "layer": 0 },
+    { "type": "grape", "x": -120, "y": 0, "layer": 0 },
+    { "type": "grape", "x": -40, "y": -20, "layer": 0 },
+    { "type": "grape", "x": 40, "y": 0, "layer": 0 },
+    { "type": "lemon", "x": -100, "y": -80, "layer": 1 },
+    { "type": "lemon", "x": 20, "y": -100, "layer": 1 },
+    { "type": "lemon", "x": 140, "y": -80, "layer": 1 },
+    { "type": "watermelon", "x": 180, "y": 0, "layer": 0, "frozen": true },
+    { "type": "watermelon", "x": -180, "y": -20, "layer": 0 },
+    { "type": "watermelon", "x": 100, "y": -40, "layer": 0 }
+  ],
+  "frozenCount": 1
+}

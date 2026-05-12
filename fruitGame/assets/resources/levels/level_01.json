@@ -1,0 +1,19 @@
+{
+  "level": 1,
+  "name": "新手引导",
+  "target": "清空全部水果",
+  "targetCount": 0,
+  "description": "只有 3 种水果，每种 3 个，引导玩家理解基本操作",
+  "fruits": [
+    { "type": "strawberry", "x": -120, "y": 80, "layer": 0 },
+    { "type": "strawberry", "x": -60, "y": 120, "layer": 0 },
+    { "type": "strawberry", "x": 0, "y": 160, "layer": 0 },
+    { "type": "orange", "x": 60, "y": 80, "layer": 0 },
+    { "type": "orange", "x": 120, "y": 120, "layer": 0 },
+    { "type": "orange", "x": 180, "y": 160, "layer": 0 },
+    { "type": "grape", "x": -100, "y": -40, "layer": 0 },
+    { "type": "grape", "x": 20, "y": -60, "layer": 0 },
+    { "type": "grape", "x": 140, "y": -40, "layer": 0 }
+  ],
+  "frozenCount": 0
+}

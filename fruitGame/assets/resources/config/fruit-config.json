@@ -1,0 +1,70 @@
+{
+  "fruits": [
+    {
+      "type": "strawberry",
+      "name": "草莓",
+      "color": "#FF4757",
+      "spritePath": "textures/fruit_strawberry",
+      "weight": 1
+    },
+    {
+      "type": "orange",
+      "name": "橙子",
+      "color": "#FFA502",
+      "spritePath": "textures/fruit_orange",
+      "weight": 1
+    },
+    {
+      "type": "grape",
+      "name": "葡萄",
+      "color": "#7B68EE",
+      "spritePath": "textures/fruit_grape",
+      "weight": 1
+    },
+    {
+      "type": "lemon",
+      "name": "柠檬",
+      "color": "#FFE042",
+      "spritePath": "textures/fruit_lemon",
+      "weight": 1
+    },
+    {
+      "type": "watermelon",
+      "name": "西瓜",
+      "color": "#2ED573",
+      "spritePath": "textures/fruit_watermelon",
+      "weight": 1
+    },
+    {
+      "type": "blueberry",
+      "name": "蓝莓",
+      "color": "#5352ED",
+      "spritePath": "textures/fruit_blueberry",
+      "weight": 1
+    }
+  ],
+  "gameplay": {
+    "basketSize": 6,
+    "matchCount": 3,
+    "maxExpand": 3,
+    "unfreezeTaps": 2
+  },
+  "animation": {
+    "flyDuration": 0.3,
+    "matchDuration": 0.45,
+    "tipDuration": 0.5,
+    "resultPanelDuration": 0.3
+  },
+  "powerUps": {
+    "freshBox": {
+      "name": "保鲜盒",
+      "description": "解冻一个冰冻水果",
+      "defaultCount": 2
+    },
+    "expand": {
+      "name": "果篮扩容",
+      "description": "篮筐临时+1格",
+      "defaultCount": 1
+    }
+  }
+}

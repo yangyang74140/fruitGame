@@ -1,0 +1,19 @@
+# Node
+node_modules/
+pnpm-lock.yaml
+
+# Cocos Creator
+library/
+temp/
+local/
+profiles/
+build/
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

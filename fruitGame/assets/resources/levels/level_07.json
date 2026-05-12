@@ -1,0 +1,28 @@
+{
+  "level": 7,
+  "name": "冷藏抽屉",
+  "target": "清空全部水果",
+  "targetCount": 0,
+  "description": "3 个冰冻水果，需要策略性使用保鲜盒",
+  "fruits": [
+    { "type": "strawberry", "x": -160, "y": 160, "layer": 0, "frozen": true },
+    { "type": "strawberry", "x": -80, "y": 200, "layer": 0 },
+    { "type": "strawberry", "x": 0, "y": 240, "layer": 0 },
+    { "type": "orange", "x": 80, "y": 160, "layer": 0 },
+    { "type": "orange", "x": 160, "y": 200, "layer": 0 },
+    { "type": "orange", "x": 220, "y": 160, "layer": 0 },
+    { "type": "grape", "x": -140, "y": 30, "layer": 1 },
+    { "type": "grape", "x": -60, "y": 10, "layer": 1 },
+    { "type": "grape", "x": 20, "y": 30, "layer": 1 },
+    { "type": "lemon", "x": -100, "y": -60, "layer": 0 },
+    { "type": "lemon", "x": 0, "y": -80, "layer": 0, "frozen": true },
+    { "type": "lemon", "x": 100, "y": -60, "layer": 0 },
+    { "type": "watermelon", "x": -180, "y": -40, "layer": 1 },
+    { "type": "watermelon", "x": 60, "y": -120, "layer": 1 },
+    { "type": "watermelon", "x": 160, "y": -100, "layer": 1 },
+    { "type": "blueberry", "x": -40, "y": -150, "layer": 0, "frozen": true },
+    { "type": "blueberry", "x": 120, "y": -160, "layer": 0 },
+    { "type": "blueberry", "x": 200, "y": -40, "layer": 0 }
+  ],
+  "frozenCount": 3
+}
