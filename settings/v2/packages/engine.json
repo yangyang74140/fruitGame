@@ -1,24 +1,3 @@
 {
-  "macroConfig": {
-    "BATCHER2D_MEM_INCREMENT": 2048
-  },
-  "modules": {
-    "cache": { "base": {}, "gfx": {}, "2d": {}, "ui": {}, "particle": {}, "physics-2d": {}, "tween": {} },
-    "includeModules": [
-      "2d",
-      "base",
-      "gfx-webgl",
-      "ui",
-      "tween",
-      "particle-2d"
-    ],
-    "noDeprecatedFeatures": { "core": true, "animation": true, "audio": true, "particle": true }
-  },
-  "rendering": {
-    "renderPipeline": "builtin-pipeline"
-  },
-  "physics": {
-    "physicsEngine": "builtin",
-    "gravity": { "x": 0, "y": 0, "z": 0 }
-  }
+  "__version__": "1.0.12"
 }
