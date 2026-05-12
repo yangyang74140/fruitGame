@@ -1,14 +1,9 @@
-import { _decorator, Component, Node, Sprite, Label, tween, Vec3, Color } from 'cc';
+import { _decorator, Component, Node, Sprite, Color, tween, Vec3 } from 'cc';
 import { FruitItem, FruitType } from './FruitItem';
 
 const { ccclass, property } = _decorator;
 
-/** 篮筐槽位状态 */
-export enum SlotState {
-  EMPTY = 'empty',
-  OCCUPIED = 'occupied',
-  MATCHING = 'matching',  // 正在执行消除动画
-}
+export type SlotState = 'empty' | 'occupied' | 'matching';
 
 @ccclass('BasketSlot')
 export class BasketSlot extends Component {
@@ -16,31 +11,31 @@ export class BasketSlot extends Component {
   bgSprite: Sprite = null!;
 
   @property(Node)
-  fruitAnchor: Node = null!;  // 水果挂载点
+  fruitAnchor: Node = null!;
 
-  // ---- 运行时数据 ----
+  // ---- 运行时 ----
   private _index: number = 0;
   private _currentFruit: FruitItem | null = null;
-  private _state: SlotState = SlotState.EMPTY;
+  private _state: SlotState = 'empty';
 
-  /** 初始化槽位 */
   public init(index: number): void {
     this._index = index;
-    this._state = SlotState.EMPTY;
+    this._state = 'empty';
     if (this.fruitAnchor) {
       this.fruitAnchor.removeAllChildren();
     }
+    this.resetHighlight();
   }
 
   /** 放入水果 */
   public setFruit(fruit: FruitItem): void {
     this._currentFruit = fruit;
-    this._state = SlotState.OCCUPIED;
+    this._state = 'occupied';
 
-    // 挂载水果节点到槽位下
     if (this.fruitAnchor) {
       fruit.node.setParent(this.fruitAnchor);
       fruit.node.setPosition(0, 0, 0);
+      fruit.node.setScale(1, 1, 1);
     }
   }
 
@@ -51,10 +46,8 @@ export class BasketSlot extends Component {
       return;
     }
 
-    this._state = SlotState.MATCHING;
+    this._state = 'matching';
     this._currentFruit.playMatchAnimation(() => {
-      this._state = SlotState.EMPTY;
-      this._currentFruit = null;
       onComplete();
     });
   }
@@ -62,34 +55,36 @@ export class BasketSlot extends Component {
   /** 清空槽位 */
   public clear(): void {
     if (this._currentFruit) {
-      this._currentFruit.node.destroy();
+      if (this._currentFruit.node && this._currentFruit.node.isValid) {
+        this._currentFruit.node.destroy();
+      }
       this._currentFruit = null;
     }
-    this._state = SlotState.EMPTY;
+    this._state = 'empty';
 
     if (this.fruitAnchor) {
       this.fruitAnchor.removeAllChildren();
     }
   }
 
-  /** 设置高亮（满/危险提示） */
-  public setHighlight(color: Color): void {
+  /** 危险提示（红色） */
+  public setWarningHighlight(): void {
     if (this.bgSprite) {
-      this.bgSprite.color = color;
+      this.bgSprite.color = new Color(255, 100, 100, 255);
     }
   }
 
-  /** 重置高亮 */
+  /** 正常状态 */
   public resetHighlight(): void {
     if (this.bgSprite) {
-      this.bgSprite.color = Color.WHITE;
+      this.bgSprite.color = new Color(210, 180, 140, 255);
     }
   }
 
   // ---- getters ----
   public get index(): number { return this._index; }
   public get currentFruit(): FruitItem | null { return this._currentFruit; }
-  public get isEmpty(): boolean { return this._state === SlotState.EMPTY; }
+  public get isEmpty(): boolean { return this._state === 'empty'; }
   public get state(): SlotState { return this._state; }
   public get fruitType(): string | null {
     return this._currentFruit ? this._currentFruit.fruitType : null;

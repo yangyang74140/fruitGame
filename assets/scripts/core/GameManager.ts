@@ -1,25 +1,29 @@
 import { _decorator, Component, Node } from 'cc';
 import { LevelManager } from './LevelManager';
-import { RuleEngine } from './RuleEngine';
+import {
+  findMatch,
+  isWin,
+  isLose,
+  getBasketCapacity,
+  RULES,
+} from './RuleEngine';
 import { BasketSlot } from '../entities/BasketSlot';
 import { FruitItem } from '../entities/FruitItem';
 import { UIManager } from '../ui/UIManager';
 
 const { ccclass, property } = _decorator;
 
-/** 游戏全局状态枚举 */
+/** 游戏全局状态 */
 export enum GameState {
   IDLE = 'idle',
   PLAYING = 'playing',
-  PAUSED = 'paused',
   WIN = 'win',
   LOSE = 'lose',
 }
 
-/** 道具类型 */
 export enum PowerUpType {
-  FRESH_BOX = 'freshBox',    // 保鲜盒：解冻一个冰冻水果
-  BASKET_EXPAND = 'expand',  // 扩容：篮筐临时+1格
+  FRESH_BOX = 'freshBox',
+  BASKET_EXPAND = 'expand',
 }
 
 @ccclass('GameManager')
@@ -30,56 +34,77 @@ export class GameManager extends Component {
     return GameManager._instance!;
   }
 
-  // ---- 子模块引用 ----
+  // ---- 属性绑定（在 Cocos Creator 编辑器中拖拽绑定） ----
+
   @property(LevelManager)
   levelManager: LevelManager = null!;
-
-  @property(RuleEngine)
-  ruleEngine: RuleEngine = null!;
 
   @property(UIManager)
   uiManager: UIManager = null!;
 
-  // ---- 场景节点引用 ----
   @property(Node)
-  fruitContainer: Node = null!;   // 水果父节点
+  fruitContainer: Node = null!;
 
   @property(Node)
-  basketContainer: Node = null!;  // 篮筐父节点
+  basketContainer: Node = null!;
 
-  // ---- 状态 ----
+  // ---- 运行时状态 ----
   private _state: GameState = GameState.IDLE;
   private _currentLevel: number = 1;
   private _basketSlots: BasketSlot[] = [];
-  private _basketCapacity: number = 6;           // 基础容量
-  private _expandCount: number = 0;               // 扩容使用次数
+  private _expandCount: number = 0;
+  private _isProcessing: boolean = false; // 防止快速连点
 
   // ---- 生命周期 ----
+
   onLoad() {
     GameManager._instance = this;
   }
 
   start() {
-    this.initBasketSlots();
+    this.collectBasketSlots();
+    // 自动开始第 1 关
+    this.scheduleOnce(() => {
+      this.startLevel(1);
+    }, 0.1);
   }
 
   // ==================== 公开 API ====================
 
   /** 开始指定关卡 */
   public startLevel(levelId: number): void {
+    if (levelId > RULES.MAX_LEVEL) {
+      console.log('[GameManager] 已通关所有关卡');
+      return;
+    }
+
     this._currentLevel = levelId;
     this._state = GameState.PLAYING;
+    this._expandCount = 0;
+    this._isProcessing = false;
+
     this.resetBasket();
-    this.levelManager.loadLevel(levelId);
     this.uiManager.showLevel(levelId);
+    this.levelManager.loadLevel(levelId, () => {
+      console.log(`[GameManager] 第 ${levelId} 关加载完成`);
+    });
   }
 
   /** 玩家点击水果 */
   public onFruitTapped(fruit: FruitItem): void {
     if (this._state !== GameState.PLAYING) return;
+    if (this._isProcessing) return;
     if (!fruit.isClickable) return;
+
     if (fruit.isFrozen) {
-      this.uiManager.showTip('需要先解冻');
+      // 尝试解冻
+      const unfrozen = fruit.tryUnfreeze();
+      if (!unfrozen) {
+        this.uiManager.showTip('再点一次解冻');
+      } else {
+        this.uiManager.showTip('解冻成功');
+        this.levelManager.updateClickableStates();
+      }
       return;
     }
 
@@ -90,16 +115,24 @@ export class GameManager extends Component {
       return;
     }
 
-    // 移出场景，放入篮筐
+    // 水果入篮
     fruit.removeFromScene();
     slot.setFruit(fruit);
 
+    // 更新遮挡关系
+    this.levelManager.updateClickableStates();
+
     // 检测 3 消
-    this.checkMatch();
+    this._isProcessing = true;
+    this.scheduleOnce(() => {
+      this.checkMatch();
+    }, 0.15);
   }
 
   /** 使用道具 */
   public usePowerUp(type: PowerUpType): void {
+    if (this._state !== GameState.PLAYING) return;
+
     switch (type) {
       case PowerUpType.FRESH_BOX:
         this.unfreezeRandomFruit();
@@ -112,123 +145,148 @@ export class GameManager extends Component {
 
   // ==================== 内部逻辑 ====================
 
-  /** 初始化篮筐槽位 */
-  private initBasketSlots(): void {
-    this._basketSlots = this.basketContainer.getComponentsInChildren(BasketSlot);
-    // 初始只激活 6 个
+  private collectBasketSlots(): void {
+    this._basketSlots = this.basketContainer
+      ? this.basketContainer.getComponentsInChildren(BasketSlot)
+      : [];
     this._basketSlots.forEach((slot, i) => {
       slot.init(i);
-      slot.node.active = i < this._basketCapacity;
+      slot.node.active = true;
     });
   }
 
-  /** 查找第一个空槽 */
   private findEmptySlot(): BasketSlot | null {
-    return this._basketSlots.find(s => s.isEmpty && s.node.active) || null;
+    const maxSlots = getBasketCapacity(this._expandCount);
+    for (let i = 0; i < maxSlots && i < this._basketSlots.length; i++) {
+      if (this._basketSlots[i].isEmpty) {
+        return this._basketSlots[i];
+      }
+    }
+    return null;
   }
 
   /** 检测 3 消 */
   private checkMatch(): void {
-    const occupied = this._basketSlots.filter(s => !s.isEmpty && s.node.active);
-    const fruitTypeCount = new Map<string, BasketSlot[]>();
+    const basketTypes = this.getBasketTypes();
+    const matchType = findMatch(basketTypes);
 
-    occupied.forEach(slot => {
-      const type = slot.currentFruit!.fruitType;
-      if (!fruitTypeCount.has(type)) fruitTypeCount.set(type, []);
-      fruitTypeCount.get(type)!.push(slot);
-    });
-
-    // 找到第一个满足 3 消的水果类型
-    for (const [type, slots] of fruitTypeCount) {
-      if (slots.length >= 3) {
-        this.executeMatch(type, slots.slice(0, 3));
-        return; // 一次只处理一组消除
-      }
+    if (matchType) {
+      this.executeMatch(matchType);
+    } else {
+      this._isProcessing = false;
+      // 检测胜利条件
+      this.checkWinCondition();
     }
   }
 
   /** 执行消除 */
-  private executeMatch(fruitType: string, slots: BasketSlot[]): void {
-    // 播放装箱动画，然后清空槽位
-    slots.forEach(slot => {
+  private executeMatch(fruitType: string): void {
+    // 找到前 3 个该类型的槽位
+    const slotsToClear: BasketSlot[] = [];
+    for (const slot of this._basketSlots) {
+      if (!slot.isEmpty && slot.fruitType === fruitType) {
+        slotsToClear.push(slot);
+        if (slotsToClear.length >= RULES.MATCH_COUNT) break;
+      }
+    }
+
+    let completedCount = 0;
+    const onSlotComplete = () => {
+      completedCount++;
+      if (completedCount >= slotsToClear.length) {
+        // 所有消除动画完成
+        this._isProcessing = false;
+        // 再次检测（连锁消除）
+        this.scheduleOnce(() => this.checkMatch(), 0.1);
+      }
+    };
+
+    slotsToClear.forEach(slot => {
       slot.playMatchAnimation(() => {
         slot.clear();
-        // 动画结束后再次检测（连锁消除）
-        this.checkMatch();
+        onSlotComplete();
       });
     });
-
-    // 检测是否全部清空
-    this.scheduleOnce(() => {
-      this.checkWinCondition();
-    }, 0.5);
   }
 
   /** 篮筐满时的处理 */
   private onBasketFull(): void {
-    // 检查是否还有可用的消除组合
-    const occupied = this._basketSlots.filter(s => !s.isEmpty && s.node.active);
-    const typeCount = new Map<string, number>();
-    occupied.forEach(s => {
-      const t = s.currentFruit!.fruitType;
-      typeCount.set(t, (typeCount.get(t) || 0) + 1);
-    });
+    const maxSlots = getBasketCapacity(this._expandCount);
+    const basketTypes = this.getBasketTypes();
+    const occupiedCount = basketTypes.filter(Boolean).length;
 
-    // 如果没有任何类型 >= 3，判定失败
-    const canMatch = Array.from(typeCount.values()).some(c => c >= 3);
-    if (!canMatch) {
-      this.onGameLose();
+    if (isLose(basketTypes, occupiedCount, maxSlots)) {
+      // 检查场景中是否还有水果
+      const remaining = this.levelManager.getRemainingCount();
+      if (remaining === 0) {
+        this.onGameLose();
+      }
+      // 如果场景还有水果，篮筐满但暂不判负（等玩家用道具或操作）
     }
   }
 
   /** 检查胜利条件 */
   private checkWinCondition(): void {
-    const remainingFruits = this.fruitContainer.getComponentsInChildren(FruitItem);
-    const basketOccupied = this._basketSlots.some(s => !s.isEmpty && s.node.active);
+    const remaining = this.levelManager.getRemainingCount();
+    const occupiedCount = this._basketSlots.filter(s => !s.isEmpty).length;
 
-    if (remainingFruits.length === 0 && !basketOccupied) {
+    if (isWin(remaining, occupiedCount)) {
       this.onGameWin();
     }
   }
 
-  /** 胜利 */
   private onGameWin(): void {
     this._state = GameState.WIN;
     this.uiManager.showResult(true, this._currentLevel);
+    console.log(`[GameManager] 第 ${this._currentLevel} 关 胜利!`);
   }
 
-  /** 失败 */
   private onGameLose(): void {
     this._state = GameState.LOSE;
     this.uiManager.showResult(false, this._currentLevel);
+    console.log(`[GameManager] 第 ${this._currentLevel} 关 失败`);
   }
 
-  /** 解冻一个随机冰冻水果 */
   private unfreezeRandomFruit(): void {
     const frozen = this.fruitContainer
       .getComponentsInChildren(FruitItem)
       .filter(f => f.isFrozen);
     if (frozen.length > 0) {
       frozen[0].unfreeze();
+      this.levelManager.updateClickableStates();
+      this.uiManager.showTip('已解冻一个水果');
+    } else {
+      this.uiManager.showTip('没有冰冻水果');
     }
   }
 
-  /** 扩容篮筐 */
   private expandBasket(): void {
-    this._expandCount++;
-    const totalCapacity = this._basketCapacity + this._expandCount;
-    if (totalCapacity <= this._basketSlots.length) {
-      this._basketSlots[totalCapacity - 1].node.active = true;
+    const maxCapacity = RULES.BASE_BASKET_SIZE + RULES.MAX_EXPAND;
+    const currentCapacity = getBasketCapacity(this._expandCount);
+
+    if (currentCapacity >= maxCapacity) {
+      this.uiManager.showTip('已达最大扩容');
+      return;
     }
+
+    this._expandCount++;
+    this.uiManager.showTip(`篮筐扩容至 ${getBasketCapacity(this._expandCount)} 格`);
   }
 
-  /** 重置篮筐 */
   private resetBasket(): void {
     this._expandCount = 0;
     this._basketSlots.forEach((slot, i) => {
       slot.clear();
-      slot.node.active = i < this._basketCapacity;
+      slot.node.active = i < RULES.BASE_BASKET_SIZE;
     });
+  }
+
+  /** 获取篮筐中的水果类型数组 */
+  private getBasketTypes(): string[] {
+    const maxSlots = getBasketCapacity(this._expandCount);
+    return this._basketSlots
+      .slice(0, maxSlots)
+      .map(s => s.fruitType || '');
   }
 
   /** 重开当前关卡 */
@@ -238,13 +296,10 @@ export class GameManager extends Component {
 
   /** 下一关 */
   public nextLevel(): void {
-    if (this._currentLevel < 10) {
-      this.startLevel(this._currentLevel + 1);
-    }
+    this.startLevel(this._currentLevel + 1);
   }
 
   // ---- getters ----
   public get state(): GameState { return this._state; }
   public get currentLevel(): number { return this._currentLevel; }
-  public get basketSlots(): BasketSlot[] { return this._basketSlots; }
 }

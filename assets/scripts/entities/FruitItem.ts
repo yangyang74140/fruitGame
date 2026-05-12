@@ -1,8 +1,9 @@
-import { _decorator, Component, Sprite, SpriteFrame, Color, tween, Vec3, UIOpacity } from 'cc';
+import { _decorator, Component, Node, Sprite, tween, Vec3 } from 'cc';
+import { GameManager } from '../core/GameManager';
 
 const { ccclass, property } = _decorator;
 
-/** 水果种类枚举 */
+/** 水果种类 */
 export enum FruitType {
   STRAWBERRY = 'strawberry',
   ORANGE = 'orange',
@@ -12,12 +13,8 @@ export enum FruitType {
   BLUEBERRY = 'blueberry',
 }
 
-/** 水果状态 */
-export enum FruitState {
-  ON_BOARD = 'onBoard',      // 在场景中
-  IN_BASKET = 'inBasket',    // 在篮筐中
-  MATCHED = 'matched',       // 已消除
-}
+/** 水果状态（字符串枚举，方便序列化） */
+export type FruitState = 'onBoard' | 'inBasket' | 'matched';
 
 @ccclass('FruitItem')
 export class FruitItem extends Component {
@@ -25,27 +22,37 @@ export class FruitItem extends Component {
   fruitSprite: Sprite = null!;
 
   @property(Node)
-  frozenOverlay: Node | null = null;   // 冰冻覆盖层
+  frozenOverlay: Node | null = null;
 
   @property(Node)
-  highlightRing: Node | null = null;   // 可选中高亮环
+  highlightRing: Node | null = null;
 
   // ---- 运行时数据 ----
   private _fruitType: FruitType = FruitType.STRAWBERRY;
   private _isFrozen: boolean = false;
   private _isClickable: boolean = true;
   private _layer: number = 0;
-  private _state: FruitState = FruitState.ON_BOARD;
-  private _unfreezeProgress: number = 0;  // 解冻进度（需要点 N 次）
+  private _state: FruitState = 'onBoard';
+  private _unfreezeProgress: number = 0;
 
-  // ---- 外观资源映射 ----
-  private static spriteMap: Record<FruitType, string> = {
-    [FruitType.STRAWBERRY]: 'textures/fruit_strawberry/spriteFrame',
-    [FruitType.ORANGE]: 'textures/fruit_orange/spriteFrame',
-    [FruitType.GRAPE]: 'textures/fruit_grape/spriteFrame',
-    [FruitType.LEMON]: 'textures/fruit_lemon/spriteFrame',
-    [FruitType.WATERMELON]: 'textures/fruit_watermelon/spriteFrame',
-    [FruitType.BLUEBERRY]: 'textures/fruit_blueberry/spriteFrame',
+  /** 水果颜色映射 */
+  private static COLOR_MAP: Record<FruitType, string> = {
+    [FruitType.STRAWBERRY]: '#FF4757',
+    [FruitType.ORANGE]: '#FFA502',
+    [FruitType.GRAPE]: '#7B68EE',
+    [FruitType.LEMON]: '#FFE042',
+    [FruitType.WATERMELON]: '#2ED573',
+    [FruitType.BLUEBERRY]: '#5352ED',
+  };
+
+  /** 水果中文名 */
+  private static NAME_MAP: Record<FruitType, string> = {
+    [FruitType.STRAWBERRY]: '草莓',
+    [FruitType.ORANGE]: '橙子',
+    [FruitType.GRAPE]: '葡萄',
+    [FruitType.LEMON]: '柠檬',
+    [FruitType.WATERMELON]: '西瓜',
+    [FruitType.BLUEBERRY]: '蓝莓',
   };
 
   // ==================== 初始化 ====================
@@ -54,51 +61,34 @@ export class FruitItem extends Component {
     this._fruitType = type;
     this._isFrozen = frozen;
     this._layer = layer;
-    this._state = FruitState.ON_BOARD;
+    this._state = 'onBoard';
+    this._unfreezeProgress = 0;
 
-    // 设置外观
-    this.setSprite(type);
     this.updateFrozenVisual(frozen);
-    this.updateClickable();
+    this.updateClickableVisual();
+    this.setPlaceholderColor(type);
+  }
+
+  /** 用纯色占位 Sprite（无贴图时显示颜色方块） */
+  private setPlaceholderColor(type: FruitType): void {
+    if (!this.fruitSprite) return;
+
+    const hex = FruitItem.COLOR_MAP[type];
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+
+    this.fruitSprite.color = { r, g, b, a: 255 } as any;
   }
 
   // ==================== 交互 ====================
 
-  /** 从场景飞到篮筐的动画 */
-  public flyToBasket(targetPos: Vec3, onComplete: () => void): void {
-    this._state = FruitState.IN_BASKET;
-
-    // 跳跃 + 飞行动画
-    tween(this.node)
-      .to(0.1, { scale: new Vec3(1.2, 1.2, 1) })
-      .to(0.2, { position: targetPos, scale: new Vec3(0.8, 0.8, 1) })
-      .to(0.1, { scale: new Vec3(1, 1, 1) })
-      .call(onComplete)
-      .start();
+  /** 点击事件入口（在 Cocos Creator 中绑定到 Button 或 Node 的点击事件） */
+  public onTouch(): void {
+    GameManager.instance.onFruitTapped(this);
   }
 
-  /** 被消除时的动画 */
-  public playMatchAnimation(onComplete: () => void): void {
-    this._state = FruitState.MATCHED;
-
-    tween(this.node)
-      .to(0.15, { scale: new Vec3(1.3, 1.3, 1) })
-      .to(0.3, { scale: new Vec3(0, 0, 1) })
-      .call(() => {
-        this.node.destroy();
-        onComplete();
-      })
-      .start();
-  }
-
-  /** 解冻 */
-  public unfreeze(): void {
-    this._isFrozen = false;
-    this.updateFrozenVisual(false);
-    this.updateClickable();
-  }
-
-  /** 尝试解冻（每次点击累计） */
+  /** 尝试解冻：每次点击累计进度，2 次解冻 */
   public tryUnfreeze(): boolean {
     if (!this._isFrozen) return true;
     this._unfreezeProgress++;
@@ -109,50 +99,58 @@ export class FruitItem extends Component {
     return false;
   }
 
-  // ==================== 视觉更新 ====================
-
-  /** 设置精灵图 */
-  private setSprite(type: FruitType): void {
-    // 实际项目中通过 resources.load 加载 SpriteFrame
-    // this.fruitSprite.spriteFrame = loadedFrame;
-    console.log(`[FruitItem] 设置水果: ${type}`);
+  /** 解冻 */
+  public unfreeze(): void {
+    this._isFrozen = false;
+    this._unfreezeProgress = 0;
+    this.updateFrozenVisual(false);
+    this.updateClickableVisual();
   }
 
-  /** 更新冰冻视觉 */
+  /** 离开场景（被放入篮筐） */
+  public removeFromScene(): void {
+    this._state = 'inBasket';
+    this.node.removeFromParent();
+  }
+
+  /** 消除动画 */
+  public playMatchAnimation(onComplete: () => void): void {
+    this._state = 'matched';
+
+    tween(this.node)
+      .to(0.15, { scale: new Vec3(1.3, 1.3, 1) })
+      .to(0.3, { scale: new Vec3(0, 0, 1) })
+      .call(() => {
+        onComplete();
+      })
+      .start();
+  }
+
+  // ==================== 视觉更新 ====================
+
   private updateFrozenVisual(frozen: boolean): void {
     if (this.frozenOverlay) {
       this.frozenOverlay.active = frozen;
     }
   }
 
-  /** 更新可点击状态 */
-  private updateClickable(): void {
-    // 被遮挡（上层有水果）或已冰冻则不可直接点击
-    this._isClickable = !this._isFrozen && this._layer <= 0;
-
+  private updateClickableVisual(): void {
     if (this.highlightRing) {
       this.highlightRing.active = this._isClickable;
     }
   }
 
-  /** 移除出场景（进入篮筐后） */
-  public removeFromScene(): void {
-    this._state = FruitState.IN_BASKET;
-    this.node.removeFromParent();
+  public setClickable(val: boolean): void {
+    this._isClickable = val;
+    this.updateClickableVisual();
   }
 
   // ---- getters ----
   public get fruitType(): FruitType { return this._fruitType; }
+  public get fruitTypeName(): string { return FruitItem.NAME_MAP[this._fruitType]; }
   public get isFrozen(): boolean { return this._isFrozen; }
+  public get isUnfreezing(): boolean { return this._isFrozen && this._unfreezeProgress > 0; }
   public get isClickable(): boolean { return this._isClickable; }
   public get layer(): number { return this._layer; }
   public get state(): FruitState { return this._state; }
-
-  // ---- setters ----
-  public setClickable(val: boolean): void {
-    this._isClickable = val;
-    if (this.highlightRing) {
-      this.highlightRing.active = val;
-    }
-  }
 }
