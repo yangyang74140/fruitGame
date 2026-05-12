@@ -1,0 +1,13 @@
+{
+  "name": "fruitGame",
+  "uuid": "f1d2a3b4-c5d6-4e7f-8901-23456789abcd",
+  "version": "3.8.0",
+  "creator": {
+    "version": "3.8.5"
+  },
+  "description": "水果摊整理 + 收纳装箱 + 轻消除",
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w"
+  }
+}

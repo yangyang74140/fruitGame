@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2015",
+    "module": "ES2015",
+    "strict": true,
+    "types": [
+      "./temp/declarations/cc.custom-macro",
+      "./temp/declarations/cc.env",
+      "./temp/declarations/cc"
+    ],
+    "paths": {
+      "cc": [
+        "./temp/declarations/cc"
+      ],
+      "db://assets/*": [
+        "./assets/*"
+      ]
+    },
+    "experimentalDecorators": true,
+    "isolatedModules": true,
+    "moduleResolution": "node",
+    "noEmit": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "sourceMap": true
+  }
+}

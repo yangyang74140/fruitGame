@@ -1,0 +1,34 @@
+{
+  "build": {
+    "name": "fruitGame",
+    "platform": "web-mobile",
+    "debug": false,
+    "md5Cache": true,
+    "mainBundleCompressionType": "merge_dep",
+    "packAutoAtlas": true,
+    "startScene": "db://assets/scenes/Main.scene",
+    "scenes": [
+      {
+        "url": "db://assets/scenes/Main.scene",
+        "uuid": "aaaa1111-bbbb-cccc-dddd-eeeeeeeeeeee"
+      }
+    ],
+    "outputName": "fruitGame",
+    "inlineSpriteFrames": true,
+    "mergeStartScene": false,
+    "optimizeHotUpdate": false,
+    "polyfills": {
+      "asyncFunctions": true,
+      "coreJs": true
+    },
+    "experimentalEraseModules": false,
+    "packages": {
+      "web-mobile": {
+        "orientation": "portrait",
+        "polyfills": {
+          "asyncFunctions": true
+        }
+      }
+    }
+  }
+}

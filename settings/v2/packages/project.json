@@ -1,0 +1,19 @@
+{
+  "general": {
+    "designResolution": {
+      "width": 750,
+      "height": 1334,
+      "fitHeight": true,
+      "fitWidth": false
+    }
+  },
+  "layers": [
+    { "name": "default", "value": 1 },
+    { "name": "UI_2D", "value": 2 },
+    { "name": "GIZMOS", "value": 16 },
+    { "name": "SCENE", "value": 4 },
+    { "name": "PROFILER", "value": 8 },
+    { "name": "UI_3D", "value": 32 },
+    { "name": "IGNORE_RAYCAST", "value": 128 }
+  ]
+}
