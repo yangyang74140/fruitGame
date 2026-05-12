@@ -4,12 +4,44 @@
 
 ## 当前状态
 
-此仓库已完成云端开发环境的第一步准备：
+代码骨架、关卡数据、模块拆解、开发规划已全部完成。
 
-- 已拉取并连接 GitHub 仓库
-- 已安装 `pnpm`
-- 已整理项目开发约定与初始化说明
-- 待本地或可视化环境中创建/打开 Cocos Creator 项目
+下一步：本地用 Cocos Creator 3.x 打开本项目，搭建场景并导入资源。
+
+## 目录结构
+
+```text
+fruitGame/
+├── README.md
+├── .gitignore
+├── docs/
+│   ├── setup.md              # 开发环境准备
+│   ├── module-breakdown.md   # 核心玩法模块拆解
+│   └── dev-plan-v1.md        # 第一版开发规划
+├── project-plan/
+│   └── milestone.md          # 里程碑跟踪
+└── assets/
+    ├── scenes/               # 场景文件（待搭建）
+    ├── prefabs/              # 预制体（待创建）
+    ├── textures/             # 精灵图资源（待导入）
+    ├── audios/               # 音效资源（待导入）
+    ├── scripts/
+    │   ├── core/
+    │   │   ├── GameManager.ts   # 全局状态机 + 流程调度
+    │   │   ├── LevelManager.ts  # 关卡加载 + 水果实例化
+    │   │   └── RuleEngine.ts    # 规则引擎（纯逻辑）
+    │   ├── entities/
+    │   │   ├── FruitItem.ts     # 水果实体（状态/动画）
+    │   │   └── BasketSlot.ts    # 篮筐槽位
+    │   └── ui/
+    │       ├── UIManager.ts     # 界面管理
+    │       └── ResultPopup.ts   # 结果弹窗
+    └── resources/
+        ├── levels/
+        │   ├── level_01.json ~ level_10.json  # 10 关关卡数据
+        └── config/
+            └── fruit-config.json              # 游戏配置
+```
 
 ## 游戏目标
 
@@ -23,20 +55,10 @@
 - 语言：TypeScript
 - 包管理：pnpm
 
-## 目录规划
-
-```text
-fruitGame/
-├─ README.md
-├─ .gitignore
-├─ docs/
-│  └─ setup.md
-└─ project-plan/
-   └─ milestone.md
-```
-
 ## 下一步
 
 1. 在本地安装 Cocos Creator 3.x
 2. 用 Cocos Creator 打开本仓库目录，创建项目文件
-3. 按 `docs/setup.md` 和 `project-plan/milestone.md` 开始搭建首版
+3. 导入 6 种水果精灵图 + UI 素材
+4. 创建 Main.scene 并挂载脚本组件
+5. 按 `docs/dev-plan-v1.md` 阶段 1 开始开发
