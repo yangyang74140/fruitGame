@@ -6,9 +6,16 @@
 const { join } = require('path');
 module.paths.push(join(Editor.App.path, 'node_modules'));
 
-const { director, Node, UITransform, Sprite, Label, Button, Canvas, Color, Vec3 } = require('cc');
+const { director, Node, UITransform, Sprite, Label, Button, Canvas, Color, Vec3, js } = require('cc');
 
 const ccGlobals = { UITransform, Sprite, Label, Button, Canvas };
+const projectClassMap = {
+  'db://assets/scripts/core/GameManager': 'GameManager',
+  'db://assets/scripts/ui/UIManager': 'UIManager',
+  'db://assets/scripts/entities/BasketSlot': 'BasketSlot',
+  'db://assets/scripts/entities/FruitItem': 'FruitItem',
+  'db://assets/scripts/core/LevelManager': 'LevelManager',
+};
 
 function findNodeByPath(pathParts) {
   let node = director.getScene();
@@ -49,13 +56,10 @@ function resolveComponent(componentType) {
   if (componentType.startsWith('cc.')) {
     return ccGlobals[componentType.replace('cc.', '')];
   }
-  const mod = require(componentType);
-  if (typeof mod === 'function') return mod;
-  if (mod && typeof mod.default === 'function') return mod.default;
-  if (mod && typeof mod === 'object') {
-    for (const v of Object.values(mod)) {
-      if (typeof v === 'function') return v;
-    }
+  const className = projectClassMap[componentType];
+  if (className) {
+    const cls = js.getClassByName(className);
+    if (cls) return cls;
   }
   return null;
 }
