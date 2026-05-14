@@ -150,7 +150,15 @@ function createButtonNode(name, text, pos, colorHex, size) {
       { type: 'cc.UITransform', props: { _contentSize: size } },
       { type: 'cc.Sprite', props: { _color: { r, g, b, a: 255 } } },
       { type: 'cc.Button' },
-      { type: 'cc.Label', props: { _string: text, _fontSize: 28, _color: { r: 255, g: 255, b: 255, a: 255 } } },
+    ],
+    children: [
+      {
+        name: `${name}_label`,
+        components: [
+          { type: 'cc.UITransform', props: { _contentSize: size } },
+          { type: 'cc.Label', props: { _string: text, _fontSize: 28, _color: { r: 255, g: 255, b: 255, a: 255 } } },
+        ],
+      },
     ],
   };
 }
