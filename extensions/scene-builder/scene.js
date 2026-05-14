@@ -190,5 +190,16 @@ module.exports = {
       }
       return results;
     },
+
+    clearChildrenExcept(path, keepNames = []) {
+      const node = findNodeByPath(path);
+      if (!node) return [{ success: false, error: `节点未找到: ${path.join('/')}` }];
+      const keep = new Set(keepNames);
+      const toRemove = node.children.filter(child => !keep.has(child.name));
+      for (const child of toRemove) {
+        child.destroy();
+      }
+      return [];
+    },
   },
 };

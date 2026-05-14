@@ -357,13 +357,13 @@ async function generateScene() {
     }
 
     // 清除 Canvas 下现有子节点（保留 Camera）
-    const children = await Editor.Message.request('scene', 'query-node-children', {
-      uuid: canvasUuid,
+    const clearResults = await Editor.Message.request('scene', 'execute-scene-script', {
+      name: 'scene-builder',
+      method: 'clearChildrenExcept',
+      args: [['Canvas'], ['Camera']],
     });
-    for (const child of (children || [])) {
-      if (child.name !== 'Camera') {
-        await Editor.Message.request('scene', 'delete-node', { uuid: child });
-      }
+    if (clearResults && clearResults.length > 0) {
+      throw new Error(`清理旧节点失败:\n${clearResults.map(e => e.error).join('\n')}`);
     }
 
     // ====== 阶段1: 创建纯节点树 ======
