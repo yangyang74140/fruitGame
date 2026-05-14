@@ -6,7 +6,7 @@
  * 策略：
  *   1. 通过 editor API (scene:create-node) 创建纯节点树
  *   2. 通过 scene script (execute-scene-script) 批量挂载组件
- *   3. 组件属性通过 editor API (set-component-property) 设置
+ *   3. 组件属性也通过 scene script 在场景进程内设置
  */
 
 'use strict';
@@ -316,80 +316,6 @@ async function addComponentsViaSceneScript(tasks) {
   }
 }
 
-/**
- * 通过 editor API 设置组件属性
- * 使用 scene:execute-component-method 或 scene:set-component-property
- */
-async function setComponentPropsViaEditor(tasks) {
-  // 查询所有节点上的组件
-  // 遍历 task，找到对应组件并设置属性
-  // 这里简化处理：对每个有 props 的 task，需要找到对应的 component UUID
-
-  // 收集所有需要设置属性且路径只有一级的节点（Canvas 下的直接子节点以及更深层的）
-  // 遍历整棵树收集所有节点及其路径
-  const allNodes = [];
-  function collectNodes(tree, path) {
-    const currentPath = [...path, tree.name];
-    allNodes.push({ path: currentPath, tree });
-    if (tree.children) {
-      for (const child of tree.children) {
-        collectNodes(child, currentPath);
-      }
-    }
-  }
-  collectNodes(SCENE_TREE, []);
-  collectNodes(UI_TREE, []);
-  collectNodes(POWER_UP_TREE, []);
-
-  // 查询每个节点的组件，设置属性
-  for (const nodeInfo of allNodes) {
-    if (!nodeInfo.tree.components) continue;
-
-    // 查询该节点的 UUID（通过 name 查询）
-    // 由于 create-node 返回 UUID，我们需要跟踪 UUID
-    // 这里采用 name 查询方式
-    const queryResult = await Editor.Message.request('scene', 'query-node', {
-      name: nodeInfo.tree.name,
-    });
-
-    // query-node 返回匹配的节点数组
-    const nodeUuids = Array.isArray(queryResult) ? queryResult : (queryResult ? [queryResult] : []);
-    
-    for (const nodeUuid of nodeUuids) {
-      const comps = await Editor.Message.request('scene', 'query-node-component', {
-        uuid: nodeUuid,
-      });
-
-      if (!comps || comps.length === 0) continue;
-
-      // 匹配组件类型并设置属性
-      const definedComps = nodeInfo.tree.components;
-      let compIdx = 0;
-
-      for (const dc of definedComps) {
-        if (!dc.props) continue;
-        // 跳过不带 type 的
-        if (!dc.type) continue;
-
-        // 查找匹配的组件
-        for (let i = compIdx; i < comps.length; i++) {
-          const c = comps[i];
-          if (c.type === dc.type || (dc.type.startsWith('db://') && c.type.includes(dc.type.replace('db://', '')))) {
-            for (const [key, value] of Object.entries(dc.props)) {
-              await Editor.Message.request('scene', 'set-component-property', {
-                uuid: c.uuid,
-                path: key,
-                value: value,
-              });
-            }
-            compIdx = i + 1;
-            break;
-          }
-        }
-      }
-    }
-  }
-}
 
 /**
  * 生成完整场景
@@ -418,36 +344,16 @@ async function generateScene() {
     }
 
     // 确保 Canvas 有 cc.Canvas 和 UITransform 组件（通过 scene script）
-    const canvasComps = await Editor.Message.request('scene', 'query-node-component', {
-      uuid: canvasUuid,
+    const ensureCanvasResults = await Editor.Message.request('scene', 'execute-scene-script', {
+      name: 'scene-builder',
+      method: 'ensureComponents',
+      args: [[
+        { path: ['Canvas'], type: 'cc.Canvas', props: null },
+        { path: ['Canvas'], type: 'cc.UITransform', props: { _contentSize: { width: 750, height: 1334 } } },
+      ]],
     });
-
-    const hasCanvas = canvasComps.some(c => c.type === 'cc.Canvas');
-    const hasUITransform = canvasComps.some(c => c.type === 'cc.UITransform');
-
-    if (!hasCanvas || !hasUITransform) {
-      const missingComps = [];
-      if (!hasCanvas) missingComps.push({ path: ['Canvas'], type: 'cc.Canvas', props: null });
-      if (!hasUITransform) missingComps.push({ path: ['Canvas'], type: 'cc.UITransform', props: { _contentSize: { width: 750, height: 1334 } } });
-
-      await Editor.Message.request('scene', 'execute-scene-script', {
-        name: 'scene-builder',
-        method: 'batchAddComponents',
-        args: [missingComps],
-      });
-
-      // 设置设计分辨率
-      if (!hasUITransform) {
-        const updatedComps = await Editor.Message.request('scene', 'query-node-component', { uuid: canvasUuid });
-        const transformComp = updatedComps.find(c => c.type === 'cc.UITransform');
-        if (transformComp) {
-          await Editor.Message.request('scene', 'set-component-property', {
-            uuid: transformComp.uuid,
-            path: '_contentSize',
-            value: { width: 750, height: 1334 },
-          });
-        }
-      }
+    if (ensureCanvasResults && ensureCanvasResults.length > 0) {
+      throw new Error(`Canvas 组件初始化失败:\n${ensureCanvasResults.map(e => e.error).join('\n')}`);
     }
 
     // 清除 Canvas 下现有子节点（保留 Camera）
@@ -473,8 +379,7 @@ async function generateScene() {
 
     await addComponentsViaSceneScript(allTasks);
 
-    // ====== 阶段3: 设置组件属性（通过 editor API） ======
-    await setComponentPropsViaEditor(allTasks);
+    // 组件属性已在 scene script 挂载组件时一并设置
 
     // 保存场景
     await Editor.Message.request('scene', 'save-scene');

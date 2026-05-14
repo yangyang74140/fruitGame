@@ -139,15 +139,28 @@ function setNodeProperty(pathParts, key, value) {
 
 // ===================== 暴露给外部的方法 =====================
 
+function hasComponent(pathParts, componentType) {
+  const node = findNodeByPath(pathParts);
+  if (!node) return false;
+
+  if (componentType.startsWith('cc.')) {
+    const name = componentType.replace('cc.', '');
+    const ccGlobals = { UITransform, Sprite, Label, Button, Canvas };
+    const CompClass = ccGlobals[name];
+    return !!(CompClass && node.getComponent(CompClass));
+  }
+
+  return node.components.some(c => {
+    const ctorName = c && c.constructor ? c.constructor.name : '';
+    return componentType.includes(ctorName);
+  });
+}
+
 module.exports = {
   load() {},
   unload() {},
 
   methods: {
-    /**
-     * 批量添加组件
-     * @param {Array} tasks - [{ path: ['Canvas','GameManager'], type: 'db://...', props: {...} }, ...]
-     */
     batchAddComponents(tasks) {
       const results = [];
       for (const task of tasks) {
@@ -159,14 +172,23 @@ module.exports = {
       return results;
     },
 
-    /**
-     * 设置节点属性
-     * @param {string[]} path - 节点路径
-     * @param {string} key - 属性名
-     * @param {*} value - 属性值
-     */
     setNodeProperty(path, key, value) {
       return setNodeProperty(path, key, value);
+    },
+
+    hasComponent(path, type) {
+      return hasComponent(path, type);
+    },
+
+    ensureComponents(tasks) {
+      const results = [];
+      for (const task of tasks) {
+        if (!hasComponent(task.path, task.type)) {
+          const res = addComponent(task.path, task.type, task.props);
+          if (!res.success) results.push(res);
+        }
+      }
+      return results;
     },
   },
 };
