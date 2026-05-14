@@ -204,13 +204,22 @@ function createPowerUpButton(name, text, countLabelName, pos, colorHex) {
 
 /**
  * 递归创建节点树
+ * CC 3.8 不再支持 scene:add-component，改为在 create-node 时通过 components 参数挂载
  */
 async function createNodeTree(parentUuid, tree) {
-  // 创建节点
-  const nodeUuid = await Editor.Message.request('scene', 'create-node', {
+  // 构建 create-node 参数
+  const createOptions = {
     parent: parentUuid,
     name: tree.name,
-  });
+  };
+
+  // 在创建节点时同时挂载组件（CC 3.8 用 components 参数替代 add-component）
+  if (tree.component) {
+    const comps = Array.isArray(tree.component) ? tree.component : [tree.component];
+    createOptions.components = comps.map(c => ({ type: c.type }));
+  }
+
+  const nodeUuid = await Editor.Message.request('scene', 'create-node', createOptions);
 
   // 设置初始属性
   if (tree.props) {
@@ -232,20 +241,19 @@ async function createNodeTree(parentUuid, tree) {
     });
   }
 
-  // 添加组件
+  // 设置组件属性（组件已通过 create-node 挂载，用 query-node-component 获取 UUID）
   if (tree.component) {
     const comps = Array.isArray(tree.component) ? tree.component : [tree.component];
-    for (const comp of comps) {
-      const compUuid = await Editor.Message.request('scene', 'add-component', {
-        uuid: nodeUuid,
-        component: comp.type,
-      });
+    const nodeComps = await Editor.Message.request('scene', 'query-node-component', {
+      uuid: nodeUuid,
+    });
 
-      // 设置组件属性
-      if (comp.props) {
+    for (let i = 0; i < comps.length; i++) {
+      const comp = comps[i];
+      if (comp.props && nodeComps && nodeComps[i]) {
         for (const [key, value] of Object.entries(comp.props)) {
           await Editor.Message.request('scene', 'set-component-property', {
-            uuid: compUuid,
+            uuid: nodeComps[i].uuid,
             path: key,
             value: value,
           });
@@ -287,17 +295,13 @@ async function generateScene() {
     if (queryResult && queryResult.length > 0) {
       canvasUuid = queryResult[0];
     } else {
-      // 场景中没有 Canvas，创建一个
+      // 场景中没有 Canvas，创建一个（CC 3.8 通过 components 参数挂载）
       canvasUuid = await Editor.Message.request('scene', 'create-node', {
         name: 'Canvas',
-      });
-      await Editor.Message.request('scene', 'add-component', {
-        uuid: canvasUuid,
-        component: 'cc.Canvas',
-      });
-      await Editor.Message.request('scene', 'add-component', {
-        uuid: canvasUuid,
-        component: 'cc.UITransform',
+        components: [
+          { type: 'cc.Canvas' },
+          { type: 'cc.UITransform' },
+        ],
       });
       // 设置设计分辨率
       const comps = await Editor.Message.request('scene', 'query-node-component', {
