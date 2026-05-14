@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Sprite, tween, Vec3 } from 'cc';
+import { _decorator, Component, Node, Sprite, tween, Vec3, UITransform, Color } from 'cc';
 import { GameManager } from '../core/GameManager';
 
 const { ccclass, property } = _decorator;
@@ -26,6 +26,9 @@ export class FruitItem extends Component {
 
   @property(Node)
   highlightRing: Node | null = null;
+
+  @property(Node)
+  labelNode: Node | null = null;
 
   // ---- 运行时数据 ----
   private _fruitType: FruitType = FruitType.STRAWBERRY;
@@ -58,15 +61,19 @@ export class FruitItem extends Component {
   // ==================== 初始化 ====================
 
   public init(type: FruitType, frozen: boolean, layer: number): void {
+    this.ensurePlaceholderVisuals();
+
     this._fruitType = type;
     this._isFrozen = frozen;
     this._layer = layer;
     this._state = 'onBoard';
     this._unfreezeProgress = 0;
+    this.node.setScale(1, 1, 1);
 
     this.updateFrozenVisual(frozen);
     this.updateClickableVisual();
     this.setPlaceholderColor(type);
+    this.updateLabel();
   }
 
   /** 用纯色占位 Sprite（无贴图时显示颜色方块） */
@@ -78,7 +85,58 @@ export class FruitItem extends Component {
     const g = parseInt(hex.slice(3, 5), 16);
     const b = parseInt(hex.slice(5, 7), 16);
 
-    this.fruitSprite.color = { r, g, b, a: 255 } as any;
+    this.fruitSprite.color = new Color(r, g, b, 255);
+  }
+
+  private updateLabel(): void {
+    const label = this.labelNode?.getComponent('cc.Label') as any;
+    if (label) {
+      label.string = FruitItem.NAME_MAP[this._fruitType] || this._fruitType;
+    }
+  }
+
+  private ensurePlaceholderVisuals(): void {
+    if (!this.getComponent(UITransform)) {
+      const ui = this.addComponent(UITransform);
+      ui.setContentSize(96, 96);
+    }
+
+    if (!this.fruitSprite) {
+      this.fruitSprite = this.getComponent(Sprite) || this.addComponent(Sprite);
+    }
+
+    if (!this.highlightRing) {
+      const ring = new Node('HighlightRing');
+      ring.setParent(this.node);
+      const ringUi = ring.addComponent(UITransform);
+      ringUi.setContentSize(112, 112);
+      const ringSprite = ring.addComponent(Sprite);
+      ringSprite.color = new Color(255, 255, 255, 90);
+      this.highlightRing = ring;
+    }
+
+    if (!this.frozenOverlay) {
+      const frozen = new Node('FrozenOverlay');
+      frozen.setParent(this.node);
+      const frozenUi = frozen.addComponent(UITransform);
+      frozenUi.setContentSize(100, 100);
+      const frozenSprite = frozen.addComponent(Sprite);
+      frozenSprite.color = new Color(180, 225, 255, 160);
+      this.frozenOverlay = frozen;
+    }
+
+    if (!this.labelNode) {
+      const labelNode = new Node('FruitLabel');
+      labelNode.setParent(this.node);
+      labelNode.setPosition(0, -42, 0);
+      const labelUi = labelNode.addComponent(UITransform);
+      labelUi.setContentSize(120, 24);
+      const label = labelNode.addComponent('cc.Label') as any;
+      label.fontSize = 18;
+      label.lineHeight = 20;
+      label.color = new Color(255, 255, 255, 255);
+      this.labelNode = labelNode;
+    }
   }
 
   // ==================== 交互 ====================

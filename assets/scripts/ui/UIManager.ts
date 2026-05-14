@@ -35,6 +35,15 @@ export class UIManager extends Component {
   @property(Button)
   expandButton: Button = null!;
 
+  @property(Label)
+  freshBoxCountLabel: Label = null!;
+
+  @property(Label)
+  expandCountLabel: Label = null!;
+
+  @property(Label)
+  basketStatusLabel: Label = null!;
+
   // ---- 提示 ----
   @property(Node)
   tipNode: Node = null!;
@@ -55,6 +64,9 @@ export class UIManager extends Component {
     }
     if (this.taskLabel) {
       this.taskLabel.string = '目标：清空全部水果';
+    }
+    if (this.basketStatusLabel) {
+      this.basketStatusLabel.string = '篮筐容量：6 格';
     }
     this.hideResult();
   }
@@ -113,6 +125,24 @@ export class UIManager extends Component {
         this.tipNode.active = false;
       })
       .start();
+  }
+
+  public updatePowerUpState(freshBoxCount: number, expandCount: number, basketCapacity: number): void {
+    if (this.freshBoxCountLabel) {
+      this.freshBoxCountLabel.string = `保鲜盒 x${freshBoxCount}`;
+    }
+    if (this.expandCountLabel) {
+      this.expandCountLabel.string = `扩容 x${expandCount}`;
+    }
+    if (this.basketStatusLabel) {
+      this.basketStatusLabel.string = `篮筐容量：${basketCapacity} 格`;
+    }
+    if (this.freshBoxButton) {
+      this.freshBoxButton.interactable = freshBoxCount > 0;
+    }
+    if (this.expandButton) {
+      this.expandButton.interactable = expandCount > 0;
+    }
   }
 
   // ---- 道具按钮 ----

@@ -1,4 +1,5 @@
 import { _decorator, Component, Node } from 'cc';
+import { GameAudio } from '../GameAudio';
 import { LevelManager } from './LevelManager';
 import {
   findMatch,
@@ -54,6 +55,8 @@ export class GameManager extends Component {
   private _basketSlots: BasketSlot[] = [];
   private _expandCount: number = 0;
   private _isProcessing: boolean = false; // 防止快速连点
+  private _freshBoxCount: number = 2;
+  private _expandPowerCount: number = 1;
 
   // ---- 生命周期 ----
 
@@ -82,9 +85,13 @@ export class GameManager extends Component {
     this._state = GameState.PLAYING;
     this._expandCount = 0;
     this._isProcessing = false;
+    this._freshBoxCount = 2;
+    this._expandPowerCount = 1;
 
     this.resetBasket();
+    this.updateBasketVisualState();
     this.uiManager.showLevel(levelId);
+    this.uiManager.updatePowerUpState(this._freshBoxCount, this._expandPowerCount, getBasketCapacity(this._expandCount));
     this.levelManager.loadLevel(levelId, () => {
       console.log(`[GameManager] 第 ${levelId} 关加载完成`);
     });
@@ -99,6 +106,7 @@ export class GameManager extends Component {
     if (fruit.isFrozen) {
       // 尝试解冻
       const unfrozen = fruit.tryUnfreeze();
+      GameAudio.playClick();
       if (!unfrozen) {
         this.uiManager.showTip('再点一次解冻');
       } else {
@@ -116,6 +124,7 @@ export class GameManager extends Component {
     }
 
     // 水果入篮
+    GameAudio.playClick();
     fruit.removeFromScene();
     slot.setFruit(fruit);
 
@@ -135,12 +144,24 @@ export class GameManager extends Component {
 
     switch (type) {
       case PowerUpType.FRESH_BOX:
+        if (this._freshBoxCount <= 0) {
+          this.uiManager.showTip('保鲜盒已用完');
+          return;
+        }
+        this._freshBoxCount--;
         this.unfreezeRandomFruit();
         break;
       case PowerUpType.BASKET_EXPAND:
+        if (this._expandPowerCount <= 0) {
+          this.uiManager.showTip('扩容道具已用完');
+          return;
+        }
+        this._expandPowerCount--;
         this.expandBasket();
         break;
     }
+
+    this.uiManager.updatePowerUpState(this._freshBoxCount, this._expandPowerCount, getBasketCapacity(this._expandCount));
   }
 
   // ==================== 内部逻辑 ====================
@@ -153,6 +174,7 @@ export class GameManager extends Component {
       slot.init(i);
       slot.node.active = true;
     });
+    this.updateBasketVisualState();
   }
 
   private findEmptySlot(): BasketSlot | null {
@@ -195,7 +217,9 @@ export class GameManager extends Component {
       completedCount++;
       if (completedCount >= slotsToClear.length) {
         // 所有消除动画完成
+        GameAudio.playMatch();
         this._isProcessing = false;
+        this.updateBasketVisualState();
         // 再次检测（连锁消除）
         this.scheduleOnce(() => this.checkMatch(), 0.1);
       }
@@ -216,12 +240,9 @@ export class GameManager extends Component {
     const occupiedCount = basketTypes.filter(Boolean).length;
 
     if (isLose(basketTypes, occupiedCount, maxSlots)) {
-      // 检查场景中是否还有水果
-      const remaining = this.levelManager.getRemainingCount();
-      if (remaining === 0) {
-        this.onGameLose();
-      }
-      // 如果场景还有水果，篮筐满但暂不判负（等玩家用道具或操作）
+      this.updateBasketVisualState(true);
+      this.uiManager.showTip('篮筐满了，快想办法消除');
+      this.onGameLose();
     }
   }
 
@@ -237,12 +258,14 @@ export class GameManager extends Component {
 
   private onGameWin(): void {
     this._state = GameState.WIN;
+    GameAudio.playWin();
     this.uiManager.showResult(true, this._currentLevel);
     console.log(`[GameManager] 第 ${this._currentLevel} 关 胜利!`);
   }
 
   private onGameLose(): void {
     this._state = GameState.LOSE;
+    GameAudio.playLose();
     this.uiManager.showResult(false, this._currentLevel);
     console.log(`[GameManager] 第 ${this._currentLevel} 关 失败`);
   }
@@ -270,14 +293,15 @@ export class GameManager extends Component {
     }
 
     this._expandCount++;
+    this.updateBasketVisualState();
     this.uiManager.showTip(`篮筐扩容至 ${getBasketCapacity(this._expandCount)} 格`);
   }
 
   private resetBasket(): void {
     this._expandCount = 0;
-    this._basketSlots.forEach((slot, i) => {
+    this._basketSlots.forEach(slot => {
       slot.clear();
-      slot.node.active = i < RULES.BASE_BASKET_SIZE;
+      slot.node.active = true;
     });
   }
 
@@ -287,6 +311,18 @@ export class GameManager extends Component {
     return this._basketSlots
       .slice(0, maxSlots)
       .map(s => s.fruitType || '');
+  }
+
+  private updateBasketVisualState(forceWarning: boolean = false): void {
+    const capacity = getBasketCapacity(this._expandCount);
+    this._basketSlots.forEach((slot, index) => {
+      slot.node.active = index < capacity;
+      if (forceWarning) {
+        slot.setWarningHighlight();
+      } else {
+        slot.resetHighlight();
+      }
+    });
   }
 
   /** 重开当前关卡 */

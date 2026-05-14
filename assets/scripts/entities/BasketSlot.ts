@@ -21,6 +21,7 @@ export class BasketSlot extends Component {
   public init(index: number): void {
     this._index = index;
     this._state = 'empty';
+    this.ensurePlaceholderNodes();
     if (this.fruitAnchor) {
       this.fruitAnchor.removeAllChildren();
     }
@@ -64,6 +65,17 @@ export class BasketSlot extends Component {
 
     if (this.fruitAnchor) {
       this.fruitAnchor.removeAllChildren();
+    }
+  }
+
+  private ensurePlaceholderNodes(): void {
+    if (!this.bgSprite) {
+      this.bgSprite = this.getComponent(Sprite) || this.addComponent(Sprite);
+    }
+    if (!this.fruitAnchor) {
+      const anchor = new Node('fruitAnchor');
+      anchor.setParent(this.node);
+      this.fruitAnchor = anchor;
     }
   }
 

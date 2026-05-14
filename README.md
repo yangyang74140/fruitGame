@@ -6,7 +6,9 @@
 
 代码骨架、关卡数据、模块拆解、开发规划已全部完成。
 
-下一步：本地用 Cocos Creator 3.x 打开本项目，搭建场景并导入资源。
+当前优先目标：先在本地用 Cocos Creator 3.x 跑通占位资源版可玩 Demo。
+
+最短路径请看：`docs/playable-demo-setup.md`
 
 ## 目录结构
 
