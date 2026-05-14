@@ -1,28 +1,15 @@
 /**
  * 水果消除游戏 — 场景生成器扩展（CC 3.8 兼容版）
- * 
- * 在 Cocos Creator 中：菜单 → 扩展 → 水果消除 → 生成场景
- * 
- * 策略：
- *   1. 通过 editor API (scene:create-node) 创建纯节点树
- *   2. 通过 scene script (execute-scene-script) 批量挂载组件
- *   3. 组件属性也通过 scene script 在场景进程内设置
  */
-
 'use strict';
-
-// ===================== 节点树定义 =====================
 
 const SCENE_TREE = {
   name: 'GameManager',
   components: [
-    { type: 'db://assets/scripts/core/GameManager', afterCreate: null },
+    { type: 'db://assets/scripts/core/GameManager' },
   ],
   children: [
-    {
-      name: 'fruitContainer',
-      props: { _lpos: { x: 0, y: 0, z: 0 } },
-    },
+    { name: 'fruitContainer', props: { _lpos: { x: 0, y: 0, z: 0 } } },
     {
       name: 'basketContainer',
       props: { _lpos: { x: 0, y: -520, z: 0 } },
@@ -37,7 +24,7 @@ const SCENE_TREE = {
 const UI_TREE = {
   name: 'UIManager',
   components: [
-    { type: 'db://assets/scripts/ui/UIManager', afterCreate: null },
+    { type: 'db://assets/scripts/ui/UIManager' },
   ],
   children: [
     {
@@ -127,8 +114,6 @@ const POWER_UP_TREE = {
   ],
 };
 
-// ===================== 辅助函数 =====================
-
 function generateBasketSlots() {
   const slots = [];
   for (let i = 0; i < 6; i++) {
@@ -136,7 +121,7 @@ function generateBasketSlots() {
       name: `BasketSlot_${i}`,
       props: { _lpos: { x: -300 + i * 120, y: 0, z: 0 } },
       components: [
-        { type: 'db://assets/scripts/entities/BasketSlot', afterCreate: null },
+        { type: 'db://assets/scripts/entities/BasketSlot' },
         { type: 'cc.UITransform', props: { _contentSize: { width: 100, height: 100 } } },
         { type: 'cc.Sprite', props: { _color: { r: 210, g: 180, b: 140, a: 255 } } },
       ],
@@ -203,208 +188,27 @@ function createPowerUpButton(name, text, countLabelName, pos, colorHex) {
   };
 }
 
-// ===================== 编辑器扩展主逻辑 =====================
-
-/**
- * 收集整棵树的组件任务
- * @param {Array} pathSoFar - 当前名称路径
- * @param {object} tree - 节点定义
- * @param {Array} tasks - 收集到的任务列表
- */
-function collectComponentTasks(pathSoFar, tree, tasks) {
-  const currentPath = [...pathSoFar, tree.name];
-
-  // 收集当前节点的组件任务
-  if (tree.components) {
-    for (const comp of tree.components) {
-      tasks.push({
-        path: currentPath,
-        type: comp.type,
-        props: comp.props || null,
-      });
-    }
-  }
-
-  // 递归收集子节点
-  if (tree.children) {
-    for (const child of tree.children) {
-      collectComponentTasks(currentPath, child, tasks);
-    }
-  }
-}
-
-/**
- * 递归创建节点树（仅节点，不含组件）
- */
-async function createNodeTree(parentUuid, tree) {
-  const nodeUuid = await Editor.Message.request('scene', 'create-node', {
-    parent: parentUuid,
-    name: tree.name,
-  });
-
-  // 设置节点属性
-  if (tree.props) {
-    for (const [key, value] of Object.entries(tree.props)) {
-      await Editor.Message.request('scene', 'set-node-property', {
-        uuid: nodeUuid,
-        path: key,
-        value: value,
-      });
-    }
-  }
-
-  if (tree.active === false) {
-    await Editor.Message.request('scene', 'set-node-property', {
-      uuid: nodeUuid,
-      path: '_active',
-      value: false,
-    });
-  }
-
-  // 递归创建子节点
-  if (tree.children) {
-    for (const child of tree.children) {
-      await createNodeTree(nodeUuid, child);
-    }
-  }
-
-  return nodeUuid;
-}
-
-/**
- * 通过 scene script 为节点挂载组件
- */
-async function addComponentsViaSceneScript(tasks) {
-  if (tasks.length === 0) return;
-
-  // 分批处理，标识哪些组件已经通过 create-node 挂载（自带 UITransform 等引擎内置组件）
-  const gameScriptTasks = tasks.filter(t => t.type.startsWith('db://'));
-  const builtinTasks = tasks.filter(t => t.type.startsWith('cc.'));
-
-  // 用 scene script 批量挂载项目脚本组件
-  if (gameScriptTasks.length > 0) {
-    const results = await Editor.Message.request('scene', 'execute-scene-script', {
-      name: 'scene-builder',
-      method: 'batchAddComponents',
-      args: [gameScriptTasks],
-    });
-
-    const errors = results.filter(r => !r.success);
-    if (errors.length > 0) {
-      throw new Error(`组件挂载失败:\n${errors.map(e => e.error).join('\n')}`);
-    }
-  }
-
-  // 用 scene script 挂载内置组件（cc.UITransform, cc.Sprite, cc.Label, cc.Button）
-  const batched = [];
-  for (let i = 0; i < builtinTasks.length; i += 20) {
-    batched.push(builtinTasks.slice(i, i + 20));
-  }
-
-  for (const batch of batched) {
-    if (batch.length === 0) continue;
-    const results = await Editor.Message.request('scene', 'execute-scene-script', {
-      name: 'scene-builder',
-      method: 'batchAddComponents',
-      args: [batch],
-    });
-
-    const errors = results.filter(r => !r.success);
-    if (errors.length > 0) {
-      throw new Error(`内置组件挂载失败:\n${errors.map(e => e.error).join('\n')}`);
-    }
-  }
-}
-
-
-/**
- * 生成完整场景
- */
 async function generateScene() {
   try {
-    // 确认操作
-    Editor.Dialog.info('场景生成器', {
-      detail: '将在 Canvas 下重新生成完整的游戏节点树，是否继续？',
-      buttons: ['取消', '确定'],
-      default: 1,
-    });
-
-    // 获取或创建 Canvas
-    const queryResult = await Editor.Message.request('scene', 'query-node', {
-      name: 'Canvas',
-    });
-
-    let canvasUuid;
-    if (queryResult && queryResult.length > 0) {
-      canvasUuid = queryResult[0];
-    } else {
-      canvasUuid = await Editor.Message.request('scene', 'create-node', {
-        name: 'Canvas',
-      });
-    }
-
-    // 确保 Canvas 有 cc.Canvas 和 UITransform 组件（通过 scene script）
-    const ensureCanvasResults = await Editor.Message.request('scene', 'execute-scene-script', {
+    await Editor.Message.request('scene', 'execute-scene-script', {
       name: 'scene-builder',
-      method: 'ensureComponents',
-      args: [[
-        { path: ['Canvas'], type: 'cc.Canvas', props: null },
-        { path: ['Canvas'], type: 'cc.UITransform', props: { _contentSize: { width: 750, height: 1334 } } },
-      ]],
+      method: 'buildScene',
+      args: [[SCENE_TREE, UI_TREE, POWER_UP_TREE]],
     });
-    if (ensureCanvasResults && ensureCanvasResults.length > 0) {
-      throw new Error(`Canvas 组件初始化失败:\n${ensureCanvasResults.map(e => e.error).join('\n')}`);
-    }
-
-    // 清除 Canvas 下现有子节点（保留 Camera）
-    const clearResults = await Editor.Message.request('scene', 'execute-scene-script', {
-      name: 'scene-builder',
-      method: 'clearChildrenExcept',
-      args: [['Canvas'], ['Camera']],
-    });
-    if (clearResults && clearResults.length > 0) {
-      throw new Error(`清理旧节点失败:\n${clearResults.map(e => e.error).join('\n')}`);
-    }
-
-    // ====== 阶段1: 创建纯节点树 ======
-    await createNodeTree(canvasUuid, SCENE_TREE);
-    await createNodeTree(canvasUuid, UI_TREE);
-    await createNodeTree(canvasUuid, POWER_UP_TREE);
-
-    // ====== 阶段2: 通过 scene script 挂载所有组件 ======
-    const allTasks = [];
-    collectComponentTasks([], SCENE_TREE, allTasks);
-    collectComponentTasks([], UI_TREE, allTasks);
-    collectComponentTasks([], POWER_UP_TREE, allTasks);
-
-    await addComponentsViaSceneScript(allTasks);
-
-    // 组件属性已在 scene script 挂载组件时一并设置
-
-    // 保存场景
-    await Editor.Message.request('scene', 'save-scene');
 
     Editor.Dialog.info('场景生成器', {
       detail: `场景生成完成！
 
-节点列表：
-  Canvas
-  ├── GameManager → GameManager.ts ✓
-  │   ├── fruitContainer
-  │   └── basketContainer
-  │       ├── BasketSlot_0 → BasketSlot.ts ✓
-  │       └── ... (6个)
-  ├── UIManager → UIManager.ts ✓
-  │   ├── TopBar → levelLabel / taskLabel
-  │   ├── resultPanel
-  │   └── tipNode
-  └── PowerUpPanel
-      ├── freshBoxButton
-      └── expandButton
+已生成：
+1. GameManager / fruitContainer / basketContainer
+2. 6 个 BasketSlot
+3. UIManager / TopBar / resultPanel / tipNode
+4. PowerUpPanel / freshBoxButton / expandButton
 
-下一步：在 GameManager 组件中手动拖拽引用绑定
-  - fruitContainer / basketContainer
-  - levelManager / ruleEngine / uiManager`,
+下一步：
+1. 手动创建并绑定 FruitItem.prefab
+2. 手动补 LevelManager 节点
+3. 手动绑定按钮点击事件与组件引用`,
       buttons: ['知道了'],
     });
   } catch (err) {
@@ -414,16 +218,10 @@ async function generateScene() {
   }
 }
 
-// ===================== 扩展入口 =====================
-
 module.exports = {
   load() {
     console.log('[scene-builder] 扩展已加载，菜单：扩展 → 水果消除 → 生成场景');
   },
-
   unload() {},
-
-  methods: {
-    generateScene,
-  },
+  methods: { generateScene },
 };

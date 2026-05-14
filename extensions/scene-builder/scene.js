@@ -1,20 +1,15 @@
 /**
  * 场景脚本 — 在 Cocos Creator 场景进程中运行，可直接调用引擎 API
- * 用于批量创建节点、添加组件、设置属性
  */
-
 'use strict';
 
 const { join } = require('path');
 module.paths.push(join(Editor.App.path, 'node_modules'));
 
-const { director, Node, UITransform, Sprite, Label, Button, Canvas, Color, isValid } = require('cc');
+const { director, Node, UITransform, Sprite, Label, Button, Canvas, Color, Vec3 } = require('cc');
 
-/**
- * 递归通过名称路径查找节点
- * @param {string[]} pathParts - 从场景根开始的名称路径，如 ['Canvas', 'GameManager', 'fruitContainer']
- * @returns {Node|null}
- */
+const ccGlobals = { UITransform, Sprite, Label, Button, Canvas };
+
 function findNodeByPath(pathParts) {
   let node = director.getScene();
   for (const part of pathParts) {
@@ -24,182 +19,121 @@ function findNodeByPath(pathParts) {
   return node;
 }
 
-/**
- * 为节点添加组件
- * @param {string[]} pathParts - 节点路径
- * @param {string} componentType - 组件类型，如 'cc.UITransform' 或 'db://assets/scripts/core/GameManager'
- * @param {object} props - 可选，组件属性
- * @returns {object} { success: boolean, error?: string }
- */
-function addComponent(pathParts, componentType, props) {
-  const node = findNodeByPath(pathParts);
-  if (!node) {
-    return { success: false, error: `节点未找到: ${pathParts.join('/')}` };
-  }
-
-  // 将编辑器组件路径转换为引擎可识别的类
-  let CompClass;
-  if (componentType.startsWith('cc.')) {
-    // 内置组件：cc.UITransform, cc.Sprite 等
-    const name = componentType.replace('cc.', '');
-    const ccGlobals = { UITransform, Sprite, Label, Button, Canvas };
-    CompClass = ccGlobals[name];
-  } else if (componentType.startsWith('db://')) {
-    // 项目脚本：db://assets/scripts/core/GameManager
-    CompClass = require(componentType);
-    // require 返回的是模块对象，其中 default 或 module.exports 可能是组件类
-    if (CompClass && CompClass.default) {
-      CompClass = CompClass.default;
+function ensureNode(pathParts) {
+  let node = director.getScene();
+  for (const part of pathParts) {
+    let child = node.getChildByName(part);
+    if (!child) {
+      child = new Node(part);
+      node.addChild(child);
     }
-    if (typeof CompClass !== 'function') {
-      // 尝试获取模块导出的同名类
-      for (const key of Object.keys(CompClass || {})) {
-        if (typeof CompClass[key] === 'function') {
-          CompClass = CompClass[key];
-          break;
-        }
-      }
-    }
+    node = child;
   }
-
-  if (!CompClass || typeof CompClass !== 'function') {
-    return { success: false, error: `无法解析组件类型: ${componentType}` };
-  }
-
-  try {
-    const comp = node.addComponent(CompClass);
-    
-    if (props && comp) {
-      for (const [key, value] of Object.entries(props)) {
-        _setProperty(comp, key, value);
-      }
-    }
-    
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+  return node;
 }
 
-/**
- * 设置组件属性，兼容 Color 对象转换
- */
-function _setProperty(comp, key, value) {
-  if (key.startsWith('_')) {
-    key = key.slice(1);
-  }
-  
-  // 处理颜色对象
-  if (value && typeof value === 'object' && 'r' in value && 'g' in value && 'b' in value) {
-    const a = value.a !== undefined ? value.a : 255;
-    comp[key] = new Color(value.r, value.g, value.b, a);
+function setNodeProp(node, key, value) {
+  if (key === '_lpos' && value) {
+    node.setPosition(new Vec3(value.x || 0, value.y || 0, value.z || 0));
     return;
   }
-  
-  // 处理 _contentSize -> contentSize
-  if (key === 'contentSize' && typeof value === 'object' && value.width !== undefined) {
-    comp[key] = { width: value.width, height: value.height };
-    return;
-  }
-  
-  comp[key] = value;
-}
-
-/**
- * 设置节点属性
- */
-function setNodeProperty(pathParts, key, value) {
-  const node = findNodeByPath(pathParts);
-  if (!node) return { success: false, error: `节点未找到: ${pathParts.join('/')}` };
-
-  if (key.startsWith('_')) {
-    key = key.slice(1);
-  }
-  
-  // _lpos -> position
-  if (key === 'lpos') {
-    node.position = { x: value.x, y: value.y, z: value.z || 0 };
-    return { success: true };
-  }
-  
-  // active
-  if (key === 'active') {
+  if (key === '_active') {
     node.active = !!value;
-    return { success: true };
+    return;
+  }
+  const cleanKey = key.startsWith('_') ? key.slice(1) : key;
+  try { node[cleanKey] = value; } catch (_) {}
+}
+
+function resolveComponent(componentType) {
+  if (componentType.startsWith('cc.')) {
+    return ccGlobals[componentType.replace('cc.', '')];
+  }
+  const mod = require(componentType);
+  if (typeof mod === 'function') return mod;
+  if (mod && typeof mod.default === 'function') return mod.default;
+  if (mod && typeof mod === 'object') {
+    for (const v of Object.values(mod)) {
+      if (typeof v === 'function') return v;
+    }
+  }
+  return null;
+}
+
+function findComponent(node, componentType) {
+  const Comp = resolveComponent(componentType);
+  if (!Comp) return null;
+  return node.getComponent(Comp);
+}
+
+function setComponentProp(comp, key, value) {
+  const cleanKey = key.startsWith('_') ? key.slice(1) : key;
+  if (value && typeof value === 'object' && 'r' in value && 'g' in value && 'b' in value) {
+    comp[cleanKey] = new Color(value.r, value.g, value.b, value.a ?? 255);
+    return;
+  }
+  if (cleanKey === 'contentSize' && value && typeof value === 'object') {
+    comp[cleanKey] = { width: value.width, height: value.height };
+    return;
+  }
+  try { comp[cleanKey] = value; } catch (_) {}
+}
+
+function applyTree(parentPath, tree) {
+  const currentPath = [...parentPath, tree.name];
+  const node = ensureNode(currentPath);
+
+  if (tree.props) {
+    for (const [k, v] of Object.entries(tree.props)) setNodeProp(node, k, v);
+  }
+  if (tree.active === false) node.active = false;
+
+  const components = tree.components || tree.component || [];
+  const list = Array.isArray(components) ? components : [components];
+  for (const item of list) {
+    if (!item || !item.type) continue;
+    let comp = findComponent(node, item.type);
+    if (!comp) {
+      const Comp = resolveComponent(item.type);
+      if (!Comp) throw new Error(`无法解析组件类型: ${item.type}`);
+      comp = node.addComponent(Comp);
+    }
+    if (item.props) {
+      for (const [k, v] of Object.entries(item.props)) setComponentProp(comp, k, v);
+    }
   }
 
-  // 其他属性直接设置
-  try {
-    node[key] = value;
-    return { success: true };
-  } catch (e) {
-    return { success: false, error: e.message };
+  if (tree.children) {
+    for (const child of tree.children) applyTree(currentPath, child);
   }
 }
 
-// ===================== 暴露给外部的方法 =====================
-
-function hasComponent(pathParts, componentType) {
-  const node = findNodeByPath(pathParts);
-  if (!node) return false;
-
-  if (componentType.startsWith('cc.')) {
-    const name = componentType.replace('cc.', '');
-    const ccGlobals = { UITransform, Sprite, Label, Button, Canvas };
-    const CompClass = ccGlobals[name];
-    return !!(CompClass && node.getComponent(CompClass));
+function clearChildrenExcept(path, keepNames = []) {
+  const node = findNodeByPath(path);
+  if (!node) return;
+  const keep = new Set(keepNames);
+  for (const child of [...node.children]) {
+    if (!keep.has(child.name)) child.destroy();
   }
-
-  return node.components.some(c => {
-    const ctorName = c && c.constructor ? c.constructor.name : '';
-    return componentType.includes(ctorName);
-  });
 }
 
 module.exports = {
   load() {},
   unload() {},
-
   methods: {
-    batchAddComponents(tasks) {
-      const results = [];
-      for (const task of tasks) {
-        const res = addComponent(task.path, task.type, task.props);
-        if (!res.success) {
-          results.push(res);
-        }
-      }
-      return results;
-    },
+    buildScene(trees) {
+      const scene = director.getScene();
+      if (!scene) throw new Error('当前没有已加载场景');
+      const canvas = ensureNode(['Canvas']);
+      if (!canvas.getComponent(Canvas)) canvas.addComponent(Canvas);
+      let ui = canvas.getComponent(UITransform);
+      if (!ui) ui = canvas.addComponent(UITransform);
+      ui.contentSize = { width: 750, height: 1334 };
 
-    setNodeProperty(path, key, value) {
-      return setNodeProperty(path, key, value);
-    },
+      clearChildrenExcept(['Canvas'], ['Camera']);
 
-    hasComponent(path, type) {
-      return hasComponent(path, type);
-    },
-
-    ensureComponents(tasks) {
-      const results = [];
-      for (const task of tasks) {
-        if (!hasComponent(task.path, task.type)) {
-          const res = addComponent(task.path, task.type, task.props);
-          if (!res.success) results.push(res);
-        }
-      }
-      return results;
-    },
-
-    clearChildrenExcept(path, keepNames = []) {
-      const node = findNodeByPath(path);
-      if (!node) return [{ success: false, error: `节点未找到: ${path.join('/')}` }];
-      const keep = new Set(keepNames);
-      const toRemove = node.children.filter(child => !keep.has(child.name));
-      for (const child of toRemove) {
-        child.destroy();
-      }
-      return [];
+      for (const tree of trees) applyTree(['Canvas'], tree);
+      return { success: true };
     },
   },
 };
