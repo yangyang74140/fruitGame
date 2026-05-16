@@ -89,12 +89,14 @@ export class UIManager extends Component {
 
   private findLabel(path: string): Label | null {
     const node = find(path);
-    return node ? node.getComponent(Label) : null;
+    if (!node || !node.isValid) return null;
+    return node.getComponent(Label);
   }
 
   private findButton(path: string): Button | null {
     const node = find(path);
-    return node ? node.getComponent(Button) : null;
+    if (!node || !node.isValid) return null;
+    return node.getComponent(Button);
   }
 
   private bindButtonEvent(btn: Button | null, handlerName: string): void {
@@ -119,7 +121,7 @@ export class UIManager extends Component {
   }
 
   public showResult(isWin: boolean, levelId: number): void {
-    if (!this.resultPanel) return;
+    if (!this.resultPanel || !this.resultPanel.isValid) return;
 
     this.resultPanel.active = true;
     this.resultPanel.setScale(new Vec3(0.5, 0.5, 1));
@@ -154,7 +156,7 @@ export class UIManager extends Component {
   }
 
   public showTip(text: string): void {
-    if (!this.tipNode || !this.tipLabel) return;
+    if (!this.tipNode || !this.tipNode.isValid || !this.tipLabel) return;
 
     // 停止之前的动画
     tween(this.tipNode).stop();
@@ -169,7 +171,9 @@ export class UIManager extends Component {
       .to(1.0, { position: new Vec3(0, 400, 0) })
       .to(0.2, { scale: new Vec3(0.5, 0.5, 1) })
       .call(() => {
-        this.tipNode.active = false;
+        if (this.tipNode && this.tipNode.isValid) {
+          this.tipNode.active = false;
+        }
       })
       .start();
   }

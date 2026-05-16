@@ -65,8 +65,9 @@ export class FruitItem extends Component {
   }
 
   private autoBindSubNodes(): void {
+    if (!this.node || !this.node.isValid) return;
     if (!this.fruitSprite) {
-      this.fruitSprite = this.getComponent(Sprite)!;
+      this.fruitSprite = this.getComponent(Sprite);
     }
     if (!this.highlightRing) {
       this.highlightRing = this.node.getChildByName('HighlightRing');
@@ -77,7 +78,6 @@ export class FruitItem extends Component {
     if (!this.labelNode) {
       this.labelNode = this.node.getChildByName('FruitLabel');
     }
-    // 确保 UITransform 存在
     if (!this.getComponent(UITransform)) {
       const ui = this.addComponent(UITransform);
       ui.setContentSize(96, 96);
@@ -87,6 +87,7 @@ export class FruitItem extends Component {
   // ==================== 初始化 ====================
 
   public init(type: FruitType, frozen: boolean, layer: number): void {
+    if (!this.node || !this.node.isValid) return;
     this.ensurePlaceholderVisuals();
 
     this._fruitType = type;
@@ -122,6 +123,8 @@ export class FruitItem extends Component {
   }
 
   private ensurePlaceholderVisuals(): void {
+    if (!this.node || !this.node.isValid) return;
+
     if (!this.getComponent(UITransform)) {
       const ui = this.addComponent(UITransform);
       ui.setContentSize(96, 96);
@@ -169,7 +172,9 @@ export class FruitItem extends Component {
 
   /** 点击事件入口（在 Cocos Creator 中绑定到 Button 或 Node 的点击事件） */
   public onTouch(): void {
-    GameManager.instance.onFruitTapped(this);
+    if (!this.node || !this.node.isValid) return;
+    const gm = GameManager.instance;
+    if (gm) gm.onFruitTapped(this);
   }
 
   /** 尝试解冻：每次点击累计进度，2 次解冻 */
@@ -194,7 +199,9 @@ export class FruitItem extends Component {
   /** 离开场景（被放入篮筐） */
   public removeFromScene(): void {
     this._state = 'inBasket';
-    this.node.removeFromParent();
+    if (this.node && this.node.isValid) {
+      this.node.removeFromParent();
+    }
   }
 
   /** 消除动画 */

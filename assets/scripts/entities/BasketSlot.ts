@@ -30,10 +30,11 @@ export class BasketSlot extends Component {
 
   /** 放入水果 */
   public setFruit(fruit: FruitItem): void {
+    if (!fruit || !fruit.node || !fruit.node.isValid) return;
     this._currentFruit = fruit;
     this._state = 'occupied';
 
-    if (this.fruitAnchor) {
+    if (this.fruitAnchor && this.fruitAnchor.isValid) {
       fruit.node.setParent(this.fruitAnchor);
       fruit.node.setPosition(0, 0, 0);
       fruit.node.setScale(1, 1, 1);
@@ -56,14 +57,15 @@ export class BasketSlot extends Component {
   /** 清空槽位 */
   public clear(): void {
     if (this._currentFruit) {
-      if (this._currentFruit.node && this._currentFruit.node.isValid) {
-        this._currentFruit.node.destroy();
+      const fruitNode = this._currentFruit.node;
+      if (fruitNode && fruitNode.isValid) {
+        fruitNode.destroy();
       }
       this._currentFruit = null;
     }
     this._state = 'empty';
 
-    if (this.fruitAnchor) {
+    if (this.fruitAnchor && this.fruitAnchor.isValid) {
       this.fruitAnchor.removeAllChildren();
     }
   }

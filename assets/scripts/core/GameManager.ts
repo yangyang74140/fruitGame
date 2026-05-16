@@ -68,17 +68,23 @@ export class GameManager extends Component {
   private autoBind(): void {
     if (!this.levelManager) {
       const lm = find('LevelManager');
-      if (lm) this.levelManager = lm.getComponent(LevelManager)!;
+      if (lm) {
+        this.levelManager = lm.getComponent(LevelManager);
+      }
     }
     if (!this.uiManager) {
       const ui = find('Canvas/UIManager');
-      if (ui) this.uiManager = ui.getComponent(UIManager)!;
+      if (ui) {
+        this.uiManager = ui.getComponent(UIManager);
+      }
     }
     if (!this.fruitContainer) {
-      this.fruitContainer = find('Canvas/GameManager/fruitContainer')!;
+      const fc = find('Canvas/GameManager/fruitContainer');
+      if (fc) this.fruitContainer = fc;
     }
     if (!this.basketContainer) {
-      this.basketContainer = find('Canvas/GameManager/basketContainer')!;
+      const bc = find('Canvas/GameManager/basketContainer');
+      if (bc) this.basketContainer = bc;
     }
   }
 
@@ -185,10 +191,13 @@ export class GameManager extends Component {
   // ==================== 内部逻辑 ====================
 
   private collectBasketSlots(): void {
-    this._basketSlots = this.basketContainer
-      ? this.basketContainer.getComponentsInChildren(BasketSlot)
-      : [];
+    if (!this.basketContainer) {
+      this._basketSlots = [];
+      return;
+    }
+    this._basketSlots = this.basketContainer.getComponentsInChildren(BasketSlot);
     this._basketSlots.forEach((slot, i) => {
+      if (!slot || !slot.node || !slot.node.isValid) return;
       slot.init(i);
       slot.node.active = true;
     });
@@ -198,8 +207,9 @@ export class GameManager extends Component {
   private findEmptySlot(): BasketSlot | null {
     const maxSlots = getBasketCapacity(this._expandCount);
     for (let i = 0; i < maxSlots && i < this._basketSlots.length; i++) {
-      if (this._basketSlots[i].isEmpty) {
-        return this._basketSlots[i];
+      const slot = this._basketSlots[i];
+      if (slot && slot.node && slot.node.isValid && slot.isEmpty) {
+        return slot;
       }
     }
     return null;
@@ -224,6 +234,7 @@ export class GameManager extends Component {
     // 找到前 3 个该类型的槽位
     const slotsToClear: BasketSlot[] = [];
     for (const slot of this._basketSlots) {
+      if (!slot || !slot.node || !slot.node.isValid) continue;
       if (!slot.isEmpty && slot.fruitType === fruitType) {
         slotsToClear.push(slot);
         if (slotsToClear.length >= RULES.MATCH_COUNT) break;
@@ -267,7 +278,7 @@ export class GameManager extends Component {
   /** 检查胜利条件 */
   private checkWinCondition(): void {
     const remaining = this.levelManager.getRemainingCount();
-    const occupiedCount = this._basketSlots.filter(s => !s.isEmpty).length;
+    const occupiedCount = this._basketSlots.filter(s => s && s.node && s.node.isValid && !s.isEmpty).length;
 
     if (isWin(remaining, occupiedCount)) {
       this.onGameWin();
@@ -289,9 +300,10 @@ export class GameManager extends Component {
   }
 
   private unfreezeRandomFruit(): void {
+    if (!this.fruitContainer || !this.fruitContainer.isValid) return;
     const frozen = this.fruitContainer
       .getComponentsInChildren(FruitItem)
-      .filter(f => f.isFrozen);
+      .filter(f => f && f.node && f.node.isValid && f.isFrozen);
     if (frozen.length > 0) {
       frozen[0].unfreeze();
       this.levelManager.updateClickableStates();
@@ -318,6 +330,7 @@ export class GameManager extends Component {
   private resetBasket(): void {
     this._expandCount = 0;
     this._basketSlots.forEach(slot => {
+      if (!slot || !slot.node || !slot.node.isValid) return;
       slot.clear();
       slot.node.active = true;
     });
@@ -334,6 +347,7 @@ export class GameManager extends Component {
   private updateBasketVisualState(forceWarning: boolean = false): void {
     const capacity = getBasketCapacity(this._expandCount);
     this._basketSlots.forEach((slot, index) => {
+      if (!slot || !slot.node || !slot.node.isValid) return;
       slot.node.active = index < capacity;
       if (forceWarning) {
         slot.setWarningHighlight();

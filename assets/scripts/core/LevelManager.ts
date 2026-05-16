@@ -41,7 +41,8 @@ export class LevelManager extends Component {
 
   private autoBind(): void {
     if (!this.fruitContainer) {
-      this.fruitContainer = find('Canvas/GameManager/fruitContainer')!;
+      const fc = find('Canvas/GameManager/fruitContainer');
+      if (fc) this.fruitContainer = fc;
     }
     if (!this.fruitPrefab) {
       resources.load('prefabs/FruitItem', Prefab, (err, prefab) => {
@@ -62,7 +63,9 @@ export class LevelManager extends Component {
     this._loadedCallback = onComplete || null;
 
     // 清空当前水果
-    this.fruitContainer.removeAllChildren();
+    if (this.fruitContainer && this.fruitContainer.isValid) {
+      this.fruitContainer.removeAllChildren();
+    }
 
     // 确保 prefab 已就绪，再加载关卡 JSON
     this.ensurePrefabReady(() => {
@@ -109,6 +112,8 @@ export class LevelManager extends Component {
 
   /** 生成水果实例 */
   private spawnFruits(fruits: LevelFruitData[]): void {
+    if (!this.fruitContainer || !this.fruitContainer.isValid) return;
+
     // 按层级排序（底层先产生，放在上层之下）
     const sorted = [...fruits].sort((a, b) => (b.layer || 0) - (a.layer || 0));
 
@@ -119,6 +124,10 @@ export class LevelManager extends Component {
       }
 
       const fruitNode = instantiate(this.fruitPrefab);
+      if (!fruitNode || !fruitNode.isValid) {
+        console.warn('[LevelManager] 实例化 fruitNode 失败');
+        return;
+      }
       fruitNode.setPosition(data.x, data.y, 0);
       fruitNode.setParent(this.fruitContainer);
 
@@ -134,9 +143,12 @@ export class LevelManager extends Component {
 
   /** 更新所有水果的可点击状态（遮挡判断） */
   public updateClickableStates(): void {
+    if (!this.fruitContainer || !this.fruitContainer.isValid) return;
     const allFruits = this.fruitContainer.getComponentsInChildren(FruitItem);
 
     allFruits.forEach(fruit => {
+      if (!fruit || !fruit.node || !fruit.node.isValid) return;
+
       // 冰冻的水果不可直接点击
       if (fruit.isFrozen && !fruit.isUnfreezing) {
         fruit.setClickable(false);
@@ -156,7 +168,8 @@ export class LevelManager extends Component {
 
       for (const other of allFruits) {
         if (other === fruit) continue;
-        if (other.layer >= fruitLayer) continue; // 下层不遮挡上层
+        if (!other || !other.node || !other.node.isValid) continue;
+        if (other.layer >= fruitLayer) continue;
         if (other.state === 'inBasket' || other.state === 'matched') continue;
 
         // 简单矩形碰撞检测判断遮挡
@@ -174,16 +187,18 @@ export class LevelManager extends Component {
 
   /** 获取当前关卡可点击的水果 */
   public getClickableFruits(): FruitItem[] {
+    if (!this.fruitContainer || !this.fruitContainer.isValid) return [];
     return this.fruitContainer
       .getComponentsInChildren(FruitItem)
-      .filter(f => f.isClickable);
+      .filter(f => f && f.node && f.node.isValid && f.isClickable);
   }
 
   /** 获取场景中剩余水果数量（不含已入篮和已消除的） */
   public getRemainingCount(): number {
+    if (!this.fruitContainer || !this.fruitContainer.isValid) return 0;
     return this.fruitContainer
       .getComponentsInChildren(FruitItem)
-      .filter(f => f.state === 'onBoard')
+      .filter(f => f && f.node && f.node.isValid && f.state === 'onBoard')
       .length;
   }
 
