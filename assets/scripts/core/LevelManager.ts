@@ -33,6 +33,10 @@ export class LevelManager extends Component {
   @property(Prefab)
   fruitPrefab: Prefab = null!;
 
+  /** 强制打包器包含 FruitItem 类（仅用于驱动打包依赖，非运行时使用） */
+  @property({ type: FruitItem, visible: false })
+  private _dummyFruitItem: FruitItem = null!;
+
   /** 当前关卡配置 */
   private _currentConfig: LevelConfig | null = null;
   private _loadedCallback: (() => void) | null = null;
