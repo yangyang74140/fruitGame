@@ -146,7 +146,6 @@ export class LevelManager extends Component {
         fruitComp = fruitNode.getComponent(FruitItem);
       } catch (e) {
         console.warn('[LevelManager] getComponent(FruitItem) 异常，节点可能含损坏组件，跳过:', e);
-        fruitNode.destroy();
         return;
       }
 
@@ -154,8 +153,7 @@ export class LevelManager extends Component {
         try {
           fruitComp.init(data.type, data.frozen || false, data.layer || 0);
         } catch (e) {
-          console.warn('[LevelManager] FruitItem.init 异常:', e);
-          fruitNode.destroy();
+          console.warn('[LevelManager] FruitItem.init 异常，跳过该节点:', e);
           return;
         }
       }
@@ -170,7 +168,7 @@ export class LevelManager extends Component {
         n.setParent(this.fruitContainer);
       } catch (e) {
         console.warn('[LevelManager] setParent 异常，跳过该节点:', e);
-        n.destroy();
+        // 不调 destroy，损坏节点由 GC 回收
       }
     });
 
