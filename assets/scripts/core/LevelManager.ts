@@ -1,5 +1,8 @@
-import { _decorator, Component, Node, Prefab, instantiate, resources, JsonAsset, find, js } from 'cc';
+import { _decorator, Component, Node, Prefab, instantiate, resources, JsonAsset, find } from 'cc';
 import { FruitItem, FruitType } from '../entities/FruitItem';
+
+// 强制打包器保留 FruitItem 类引用，防止 tree-shaking 导致 @ccclass 注册丢失
+const _FRUIT_ITEM_CLASS = FruitItem;
 
 const { ccclass, property } = _decorator;
 
@@ -110,46 +113,19 @@ export class LevelManager extends Component {
     check();
   }
 
-  /** 安全获取 FruitItem 组件 — 绕过引擎 getComponent 对损坏组件数组的空指针崩溃 */
+  /** 安全获取 FruitItem 组件 */
   private safeGetFruitComponent(node: Node): FruitItem | null {
-    const comps = (node as any)._components;
-    if (!comps || !Array.isArray(comps)) {
-      console.warn('[LevelManager] _components 不可用，类型:', typeof comps);
+    try {
+      return node.getComponent(FruitItem);
+    } catch (e) {
+      console.warn('[LevelManager] getComponent(FruitItem) 异常:', e);
       return null;
     }
-    console.log(`[LevelManager] 节点有 ${comps.length} 个组件`);
-    for (let i = 0; i < comps.length; i++) {
-      const comp = comps[i];
-      if (!comp) {
-        console.warn(`[LevelManager] _components[${i}] 为 null`);
-        continue;
-      }
-      const ctorName = comp.constructor?.name || 'unknown';
-      console.log(`[LevelManager] _components[${i}]: ${ctorName}, 有 init? ${typeof comp.init === 'function'}`);
-      if (comp.constructor && comp.constructor.name === 'FruitItem') {
-        return comp as FruitItem;
-      }
-    }
-    console.warn('[LevelManager] 未找到 FruitItem 组件；尝试 ccclass 名匹配...');
-    // 回退：用 js.getClassByName 做 instanceof 检查
-    const FruitItemClass = js.getClassByName('FruitItem');
-    if (FruitItemClass) {
-      for (const comp of comps) {
-        if (comp && comp instanceof FruitItemClass) {
-          return comp as FruitItem;
-        }
-      }
-    }
-    return null;
   }
 
   /** 生成水果实例 */
   private spawnFruits(fruits: LevelFruitData[]): void {
-    console.log(`[LevelManager] spawnFruits 开始，共 ${fruits.length} 个水果`);
-    if (!this.fruitContainer || !this.fruitContainer.isValid) {
-      console.warn('[LevelManager] fruitContainer 不可用');
-      return;
-    }
+    if (!this.fruitContainer || !this.fruitContainer.isValid) return;
 
     // 按层级排序（底层先产生，放在上层之下）
     const sorted = [...fruits].sort((a, b) => (b.layer || 0) - (a.layer || 0));
