@@ -196,12 +196,9 @@ export class FruitItem extends Component {
     this.updateClickableVisual();
   }
 
-  /** 离开场景（被放入篮筐） */
+  /** 离开场景（被放入篮筐，不主动 removeFromParent，由 BasketSlot.setFruit 的 setParent 统一处理层级切换） */
   public removeFromScene(): void {
     this._state = 'inBasket';
-    if (this.node && this.node.isValid) {
-      this.node.removeFromParent();
-    }
   }
 
   /** 消除动画 */

@@ -71,6 +71,7 @@ export class BasketSlot extends Component {
   }
 
   private ensurePlaceholderNodes(): void {
+    if (!this.node || !this.node.isValid) return;
     if (!this.bgSprite) {
       this.bgSprite = this.getComponent(Sprite) || this.addComponent(Sprite);
     }

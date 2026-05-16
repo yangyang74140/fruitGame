@@ -117,6 +117,8 @@ export class LevelManager extends Component {
     // 按层级排序（底层先产生，放在上层之下）
     const sorted = [...fruits].sort((a, b) => (b.layer || 0) - (a.layer || 0));
 
+    const nodes: Node[] = [];
+
     sorted.forEach(data => {
       if (!this.fruitPrefab) {
         console.warn('[LevelManager] fruitPrefab 未设置，跳过实例化');
@@ -128,12 +130,22 @@ export class LevelManager extends Component {
         console.warn('[LevelManager] 实例化 fruitNode 失败');
         return;
       }
-      fruitNode.setPosition(data.x, data.y, 0);
-      fruitNode.setParent(this.fruitContainer);
 
+      fruitNode.setPosition(data.x, data.y, 0);
+
+      // 在挂载到场景树之前，先完成组件初始化
       const fruitComp = fruitNode.getComponent(FruitItem);
       if (fruitComp) {
         fruitComp.init(data.type, data.frozen || false, data.layer || 0);
+      }
+
+      nodes.push(fruitNode);
+    });
+
+    // 所有节点初始化完成后再统一挂载到场景树
+    nodes.forEach(n => {
+      if (n && n.isValid) {
+        n.setParent(this.fruitContainer);
       }
     });
 
