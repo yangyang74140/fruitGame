@@ -1,4 +1,4 @@
-import { _decorator, Component, Node } from 'cc';
+import { _decorator, Component, Node, find } from 'cc';
 import { GameAudio } from '../GameAudio';
 import { LevelManager } from './LevelManager';
 import {
@@ -62,6 +62,24 @@ export class GameManager extends Component {
 
   onLoad() {
     GameManager._instance = this;
+    this.autoBind();
+  }
+
+  private autoBind(): void {
+    if (!this.levelManager) {
+      const lm = find('LevelManager');
+      if (lm) this.levelManager = lm.getComponent(LevelManager)!;
+    }
+    if (!this.uiManager) {
+      const ui = find('Canvas/UIManager');
+      if (ui) this.uiManager = ui.getComponent(UIManager)!;
+    }
+    if (!this.fruitContainer) {
+      this.fruitContainer = find('Canvas/GameManager/fruitContainer')!;
+    }
+    if (!this.basketContainer) {
+      this.basketContainer = find('Canvas/GameManager/basketContainer')!;
+    }
   }
 
   start() {

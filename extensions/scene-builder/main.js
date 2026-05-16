@@ -204,6 +204,13 @@ async function generateScene() {
       args: [[SCENE_TREE, UI_TREE, POWER_UP_TREE]],
     });
 
+    // 生成 FruitItem.prefab
+    await Editor.Message.request('scene', 'execute-scene-script', {
+      name: 'scene-builder',
+      method: 'generateFruitPrefab',
+      args: [],
+    });
+
     Editor.Dialog.info('场景生成器', {
       detail: `场景生成完成！
 
@@ -212,11 +219,11 @@ async function generateScene() {
 2. 6 个 BasketSlot
 3. UIManager / TopBar / resultPanel / tipNode
 4. PowerUpPanel / freshBoxButton / expandButton
+5. LevelManager 节点
+6. FruitItem.prefab
 
-下一步：
-1. 手动创建并绑定 FruitItem.prefab
-2. 手动补 LevelManager 节点
-3. 手动绑定按钮点击事件与组件引用`,
+绑定引用和按钮事件已由代码自动完成。
+直接运行即可测试。`,
       buttons: ['知道了'],
     });
   } catch (err) {

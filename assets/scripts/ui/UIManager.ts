@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Label, Button, tween, Vec3, Color } from 'cc';
+import { _decorator, Component, Node, Label, Button, tween, Vec3, Color, find } from 'cc';
 import { GameManager } from '../core/GameManager';
 
 const { ccclass, property } = _decorator;
@@ -52,8 +52,55 @@ export class UIManager extends Component {
   tipLabel: Label = null!;
 
   onLoad() {
+    this.autoBind();
     this.hideResult();
     if (this.tipNode) this.tipNode.active = false;
+  }
+
+  private autoBind(): void {
+    // ---- 顶部 UI ----
+    if (!this.levelLabel) this.levelLabel = this.findLabel('Canvas/UIManager/TopBar/levelLabel');
+    if (!this.taskLabel) this.taskLabel = this.findLabel('Canvas/UIManager/TopBar/taskLabel');
+    if (!this.basketStatusLabel) this.basketStatusLabel = this.findLabel('Canvas/UIManager/TopBar/basketStatusLabel');
+
+    // ---- 结果弹窗 ----
+    if (!this.resultPanel) this.resultPanel = find('Canvas/UIManager/resultPanel');
+    if (!this.resultTitle) this.resultTitle = this.findLabel('Canvas/UIManager/resultPanel/resultTitle');
+    if (!this.resultSubtitle) this.resultSubtitle = this.findLabel('Canvas/UIManager/resultPanel/resultSubtitle');
+    if (!this.restartButton) this.restartButton = this.findButton('Canvas/UIManager/resultPanel/restartButton');
+    if (!this.nextLevelButton) this.nextLevelButton = this.findButton('Canvas/UIManager/resultPanel/nextLevelButton');
+
+    // ---- 道具按钮 ----
+    if (!this.freshBoxButton) this.freshBoxButton = this.findButton('Canvas/PowerUpPanel/freshBoxButton');
+    if (!this.expandButton) this.expandButton = this.findButton('Canvas/PowerUpPanel/expandButton');
+    if (!this.freshBoxCountLabel) this.freshBoxCountLabel = this.findLabel('Canvas/PowerUpPanel/freshBoxButton/freshBoxCountLabel');
+    if (!this.expandCountLabel) this.expandCountLabel = this.findLabel('Canvas/PowerUpPanel/expandButton/expandCountLabel');
+
+    // ---- 提示 ----
+    if (!this.tipNode) this.tipNode = find('Canvas/UIManager/tipNode');
+    if (!this.tipLabel) this.tipLabel = this.findLabel('Canvas/UIManager/tipNode');
+
+    // ---- 按钮点击事件（代码绑定，不需要在编辑器里绑） ----
+    this.bindButtonEvent(this.freshBoxButton, 'onFreshBoxClick');
+    this.bindButtonEvent(this.expandButton, 'onExpandClick');
+    this.bindButtonEvent(this.restartButton, 'onRestartClick');
+    this.bindButtonEvent(this.nextLevelButton, 'onNextLevelClick');
+  }
+
+  private findLabel(path: string): Label | null {
+    const node = find(path);
+    return node ? node.getComponent(Label) : null;
+  }
+
+  private findButton(path: string): Button | null {
+    const node = find(path);
+    return node ? node.getComponent(Button) : null;
+  }
+
+  private bindButtonEvent(btn: Button | null, handlerName: string): void {
+    if (!btn) return;
+    (btn.node as any).off('click'); // 避免重复绑定
+    btn.node.on('click', (this as any)[handlerName], this);
   }
 
   // ==================== 公开 API ====================

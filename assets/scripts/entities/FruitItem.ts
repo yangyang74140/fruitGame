@@ -58,6 +58,32 @@ export class FruitItem extends Component {
     [FruitType.BLUEBERRY]: '蓝莓',
   };
 
+  // ==================== 生命周期 ====================
+
+  onLoad() {
+    this.autoBindSubNodes();
+  }
+
+  private autoBindSubNodes(): void {
+    if (!this.fruitSprite) {
+      this.fruitSprite = this.getComponent(Sprite)!;
+    }
+    if (!this.highlightRing) {
+      this.highlightRing = this.node.getChildByName('HighlightRing');
+    }
+    if (!this.frozenOverlay) {
+      this.frozenOverlay = this.node.getChildByName('FrozenOverlay');
+    }
+    if (!this.labelNode) {
+      this.labelNode = this.node.getChildByName('FruitLabel');
+    }
+    // 确保 UITransform 存在
+    if (!this.getComponent(UITransform)) {
+      const ui = this.addComponent(UITransform);
+      ui.setContentSize(96, 96);
+    }
+  }
+
   // ==================== 初始化 ====================
 
   public init(type: FruitType, frozen: boolean, layer: number): void {

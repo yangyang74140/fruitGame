@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Prefab, instantiate, resources, JsonAsset } from 'cc';
+import { _decorator, Component, Node, Prefab, instantiate, resources, JsonAsset, find } from 'cc';
 import { FruitItem, FruitType } from '../entities/FruitItem';
 
 const { ccclass, property } = _decorator;
@@ -33,6 +33,29 @@ export class LevelManager extends Component {
   /** 当前关卡配置 */
   private _currentConfig: LevelConfig | null = null;
   private _loadedCallback: (() => void) | null = null;
+  private _prefabReady: boolean = false;
+
+  onLoad() {
+    this.autoBind();
+  }
+
+  private autoBind(): void {
+    if (!this.fruitContainer) {
+      this.fruitContainer = find('Canvas/GameManager/fruitContainer')!;
+    }
+    if (!this.fruitPrefab) {
+      resources.load('prefabs/FruitItem', Prefab, (err, prefab) => {
+        if (!err) {
+          this.fruitPrefab = prefab;
+          this._prefabReady = true;
+        } else {
+          console.warn('[LevelManager] 自动加载 FruitItem.prefab 失败:', err);
+        }
+      });
+    } else {
+      this._prefabReady = true;
+    }
+  }
 
   /** 加载关卡（异步，通过 resources.load 加载 JSON） */
   public loadLevel(levelId: number, onComplete?: () => void): void {
@@ -41,21 +64,47 @@ export class LevelManager extends Component {
     // 清空当前水果
     this.fruitContainer.removeAllChildren();
 
-    // 异步加载关卡 JSON
-    const path = `levels/level_${String(levelId).padStart(2, '0')}`;
-    resources.load(path, JsonAsset, (err, asset) => {
-      if (err) {
-        console.error(`[LevelManager] 关卡 ${levelId} 加载失败:`, err);
-        return;
-      }
+    // 确保 prefab 已就绪，再加载关卡 JSON
+    this.ensurePrefabReady(() => {
+      const path = `levels/level_${String(levelId).padStart(2, '0')}`;
+      resources.load(path, JsonAsset, (err, asset) => {
+        if (err) {
+          console.error(`[LevelManager] 关卡 ${levelId} 加载失败:`, err);
+          return;
+        }
 
-      this._currentConfig = asset.json as LevelConfig;
-      this.spawnFruits(this._currentConfig.fruits);
+        this._currentConfig = asset.json as LevelConfig;
+        this.spawnFruits(this._currentConfig.fruits);
 
-      if (this._loadedCallback) {
-        this._loadedCallback();
-      }
+        if (this._loadedCallback) {
+          this._loadedCallback();
+        }
+      });
     });
+  }
+
+  /** 等待 prefab 就绪 */
+  private ensurePrefabReady(cb: () => void): void {
+    if (this.fruitPrefab) {
+      this._prefabReady = true;
+      cb();
+      return;
+    }
+    // prefab 还在异步加载中，轮询等待
+    let retries = 0;
+    const check = () => {
+      if (this.fruitPrefab) {
+        this._prefabReady = true;
+        cb();
+      } else if (retries < 50) {
+        retries++;
+        this.scheduleOnce(check, 0.1);
+      } else {
+        console.error('[LevelManager] FruitItem.prefab 加载超时');
+        cb(); // 再试最后一次
+      }
+    };
+    check();
   }
 
   /** 生成水果实例 */

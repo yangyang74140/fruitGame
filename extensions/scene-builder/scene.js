@@ -137,6 +137,30 @@ module.exports = {
       clearChildrenExcept(['Canvas'], ['Camera']);
 
       for (const tree of trees) applyTree(['Canvas'], tree);
+
+      // 创建 LevelManager（场景根级别，不在 Canvas 下）
+      const lmNode = ensureNode(['LevelManager']);
+      const LM = js.getClassByName('LevelManager');
+      if (LM && !lmNode.getComponent(LM)) lmNode.addComponent(LM);
+
+      return { success: true };
+    },
+
+    generateFruitPrefab() {
+      // FruitItem.prefab 文件已生成在 assets/resources/prefabs/ 目录
+      const { join } = require('path');
+      const prefabPath = join(Editor.Project.path, 'assets', 'resources', 'prefabs', 'FruitItem.prefab');
+      try {
+        const fs = require('fs');
+        if (fs.existsSync(prefabPath)) {
+          console.log('[scene-builder] FruitItem.prefab 已存在:', prefabPath);
+          return { success: true };
+        }
+      } catch (e) {
+        // fs 不可用时忽略
+      }
+
+      Editor.Message.request('asset-db', 'refresh', 'db://assets/resources/prefabs');
       return { success: true };
     },
   },
