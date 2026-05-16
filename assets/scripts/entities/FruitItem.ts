@@ -1,5 +1,4 @@
-import { _decorator, Component, Node, Sprite, tween, Vec3, UITransform, Color } from 'cc';
-import { GameManager } from '../core/GameManager';
+import { _decorator, Component, Node, Sprite, tween, Vec3, UITransform, Color, find } from 'cc';
 
 const { ccclass, property } = _decorator;
 
@@ -173,8 +172,10 @@ export class FruitItem extends Component {
   /** 点击事件入口（在 Cocos Creator 中绑定到 Button 或 Node 的点击事件） */
   public onTouch(): void {
     if (!this.node || !this.node.isValid) return;
-    const gm = GameManager.instance;
-    if (gm) gm.onFruitTapped(this);
+    // 运行时查找 GameManager，避免循环依赖导致 @ccclass 注册失败
+    const gmNode = find('Canvas/GameManager');
+    const gm = gmNode?.getComponent('GameManager') as any;
+    if (gm?.onFruitTapped) gm.onFruitTapped(this);
   }
 
   /** 尝试解冻：每次点击累计进度，2 次解冻 */
