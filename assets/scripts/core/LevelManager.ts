@@ -125,7 +125,14 @@ export class LevelManager extends Component {
         return;
       }
 
-      const fruitNode = instantiate(this.fruitPrefab);
+      let fruitNode: Node | null = null;
+      try {
+        fruitNode = instantiate(this.fruitPrefab);
+      } catch (e) {
+        console.warn('[LevelManager] instantiate 异常:', e);
+        return;
+      }
+
       if (!fruitNode || !fruitNode.isValid) {
         console.warn('[LevelManager] 实例化 fruitNode 失败');
         return;
@@ -134,9 +141,23 @@ export class LevelManager extends Component {
       fruitNode.setPosition(data.x, data.y, 0);
 
       // 在挂载到场景树之前，先完成组件初始化
-      const fruitComp = fruitNode.getComponent(FruitItem);
+      let fruitComp: FruitItem | null = null;
+      try {
+        fruitComp = fruitNode.getComponent(FruitItem);
+      } catch (e) {
+        console.warn('[LevelManager] getComponent(FruitItem) 异常，节点可能含损坏组件，跳过:', e);
+        fruitNode.destroy();
+        return;
+      }
+
       if (fruitComp) {
-        fruitComp.init(data.type, data.frozen || false, data.layer || 0);
+        try {
+          fruitComp.init(data.type, data.frozen || false, data.layer || 0);
+        } catch (e) {
+          console.warn('[LevelManager] FruitItem.init 异常:', e);
+          fruitNode.destroy();
+          return;
+        }
       }
 
       nodes.push(fruitNode);
@@ -144,8 +165,12 @@ export class LevelManager extends Component {
 
     // 所有节点初始化完成后再统一挂载到场景树
     nodes.forEach(n => {
-      if (n && n.isValid) {
+      if (!n || !n.isValid) return;
+      try {
         n.setParent(this.fruitContainer);
+      } catch (e) {
+        console.warn('[LevelManager] setParent 异常，跳过该节点:', e);
+        n.destroy();
       }
     });
 

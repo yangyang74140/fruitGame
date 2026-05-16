@@ -67,7 +67,11 @@ function resolveComponent(componentType) {
 function findComponent(node, componentType) {
   const Comp = resolveComponent(componentType);
   if (!Comp) return null;
-  return node.getComponent(Comp);
+  try {
+    return node.getComponent(Comp);
+  } catch (e) {
+    return null;
+  }
 }
 
 function setComponentProp(comp, key, value) {
@@ -99,10 +103,18 @@ function applyTree(parentPath, tree) {
     let comp = findComponent(node, item.type);
     if (!comp) {
       const Comp = resolveComponent(item.type);
-      if (!Comp) throw new Error(`无法解析组件类型: ${item.type}`);
-      comp = node.addComponent(Comp);
+      if (!Comp || typeof Comp !== 'function') {
+        console.warn(`[scene-builder] 跳过无法解析的组件类型: ${item.type}`);
+        continue;
+      }
+      try {
+        comp = node.addComponent(Comp);
+      } catch (e) {
+        console.warn(`[scene-builder] addComponent 异常 (${item.type}):`, e);
+        continue;
+      }
     }
-    if (item.props) {
+    if (item.props && comp) {
       for (const [k, v] of Object.entries(item.props)) setComponentProp(comp, k, v);
     }
   }

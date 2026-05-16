@@ -35,9 +35,15 @@ export class BasketSlot extends Component {
     this._state = 'occupied';
 
     if (this.fruitAnchor && this.fruitAnchor.isValid) {
-      fruit.node.setParent(this.fruitAnchor);
-      fruit.node.setPosition(0, 0, 0);
-      fruit.node.setScale(1, 1, 1);
+      try {
+        fruit.node.setParent(this.fruitAnchor);
+        fruit.node.setPosition(0, 0, 0);
+        fruit.node.setScale(1, 1, 1);
+      } catch (e) {
+        console.warn('[BasketSlot] setFruit.setParent 异常:', e);
+        this._currentFruit = null;
+        this._state = 'empty';
+      }
     }
   }
 
