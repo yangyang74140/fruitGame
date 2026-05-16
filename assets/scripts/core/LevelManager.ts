@@ -110,6 +110,18 @@ export class LevelManager extends Component {
     check();
   }
 
+  /** 安全获取 FruitItem 组件 — 绕过引擎 getComponent 对损坏组件数组的空指针崩溃 */
+  private safeGetFruitComponent(node: Node): FruitItem | null {
+    const comps = (node as any)._components;
+    if (!comps || !Array.isArray(comps)) return null;
+    for (const comp of comps) {
+      if (comp && comp.constructor && comp.constructor.name === 'FruitItem') {
+        return comp as FruitItem;
+      }
+    }
+    return null;
+  }
+
   /** 生成水果实例 */
   private spawnFruits(fruits: LevelFruitData[]): void {
     if (!this.fruitContainer || !this.fruitContainer.isValid) return;
@@ -141,21 +153,12 @@ export class LevelManager extends Component {
       fruitNode.setPosition(data.x, data.y, 0);
 
       // 在挂载到场景树之前，先完成组件初始化
-      let fruitComp: FruitItem | null = null;
-      try {
-        fruitComp = fruitNode.getComponent(FruitItem);
-      } catch (e) {
-        console.warn('[LevelManager] getComponent(FruitItem) 异常，节点可能含损坏组件，跳过:', e);
-        return;
-      }
-
+      const fruitComp = this.safeGetFruitComponent(fruitNode);
       if (fruitComp) {
-        try {
-          fruitComp.init(data.type, data.frozen || false, data.layer || 0);
-        } catch (e) {
-          console.warn('[LevelManager] FruitItem.init 异常，跳过该节点:', e);
-          return;
-        }
+        fruitComp.init(data.type, data.frozen || false, data.layer || 0);
+      } else {
+        console.warn('[LevelManager] 节点上未找到有效的 FruitItem 组件，跳过');
+        return;
       }
 
       nodes.push(fruitNode);
